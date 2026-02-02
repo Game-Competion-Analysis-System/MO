@@ -1,19 +1,37 @@
 import { files } from "@/constants/files";
 import { headers } from "@/constants/styles";
-import { FlatList, Image, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import {
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-function GameTitleSection({ title, img }: { title: string; img: string }) {
+function GameTitleSection({
+  title,
+  img,
+  onPress,
+}: {
+  title: string;
+  img: string;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.gameTitleContainer}>
-      <Image
-        source={files.placeHolderImageGameThumbnail}
-        style={{
-          width: "100%",
-          height: 208,
-        }}
-      />
-      <Text style={headers.h2}>{title}</Text>
-    </View>
+    <Pressable onPress={onPress}>
+      <View style={styles.gameTitleContainer}>
+        <Image
+          source={files.placeHolderImageGameThumbnail}
+          style={{
+            width: "100%",
+            height: 208,
+          }}
+        />
+        <Text style={headers.h2}>{title}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -22,14 +40,23 @@ export default function GameTitleSections({
 }: {
   items: { title: string; img: string }[];
 }) {
+  const router = useRouter();
+
   return (
     <FlatList
       style={{
         flex: 1,
       }}
+      contentContainerStyle={{
+        gap: 16,
+      }}
       data={items}
-      renderItem={({ item }) => (
-        <GameTitleSection title={item.title} img={item.img} />
+      renderItem={({ item, index }) => (
+        <GameTitleSection
+          title={item.title}
+          img={item.img}
+          onPress={() => router.push(`/game/${String(index + 1)}` as any)}
+        />
       )}
     />
   );

@@ -24,7 +24,13 @@ export default function RootLayout() {
         headerTitle: () => HeaderTitle(),
       }}
     >
-      <Stack.Screen name="index" options={{ title: "VLK Analyzer" }} />
+      <Stack.Screen name="index" options={{ headerBackVisible: false }} />
+      <Stack.Screen
+        name="game/[id]"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
