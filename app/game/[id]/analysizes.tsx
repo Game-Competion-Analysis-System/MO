@@ -1,3 +1,4 @@
+import AnalysizesResult from "@/components/AnalysizesResult";
 import { container, headers, styleVariables } from "@/constants/styles";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from "expo-image-picker";
@@ -13,81 +14,6 @@ import {
 } from "react-native";
 
 type AnalysisState = "idle" | "loading" | "complete";
-
-function AnalysizesResult({
-  topRankings,
-  activeEvents,
-  detectedPlayers,
-}: {
-  topRankings: { playerName: string; tag: string; score: number }[];
-  activeEvents: { eventName: string; endDate: string; status: string }[];
-  detectedPlayers: {
-    playerName: string;
-    level: number;
-    tag: string;
-    status: string;
-  }[];
-}) {
-  return (
-    <View style={styles.resultContainer}>
-      <Text style={headers.h2}>Top Rankings</Text>
-      {topRankings.map((player, index) => (
-        <View key={index} style={styles.resultItem}>
-          <Text style={styles.rankNumber}>#{index + 1}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.playerName}>{player.playerName}</Text>
-            <Text style={headers.h4}>{player.tag}</Text>
-          </View>
-          <Text style={styles.score}>{player.score}</Text>
-        </View>
-      ))}
-
-      <Text style={[headers.h2, { marginTop: 16 }]}>Active Events</Text>
-      {activeEvents.map((event, index) => (
-        <View key={index} style={styles.resultItem}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.playerName}>{event.eventName}</Text>
-            <Text style={headers.h4}>Ends: {event.endDate}</Text>
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
-              {
-                backgroundColor:
-                  event.status === "Active" ? "#22C55E" : "#F59E0B",
-              },
-            ]}
-          >
-            <Text style={styles.statusText}>{event.status}</Text>
-          </View>
-        </View>
-      ))}
-
-      <Text style={[headers.h2, { marginTop: 16 }]}>Detected Players</Text>
-      {detectedPlayers.map((player, index) => (
-        <View key={index} style={styles.resultItem}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.playerName}>{player.playerName}</Text>
-            <Text style={headers.h4}>
-              Lv.{player.level} • {player.tag}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
-              {
-                backgroundColor:
-                  player.status === "Online" ? "#22C55E" : "#6B7280",
-              },
-            ]}
-          >
-            <Text style={styles.statusText}>{player.status}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
 
 const mockAnalysisResult = {
   topRankings: [
@@ -187,10 +113,16 @@ export default function AnalysizesScreen() {
         </Pressable>
       ) : (
         <View style={styles.imageContainer}>
-          <Image source={{ uri: selectedImage! }} style={styles.selectedImage} />
+          <Image
+            source={{ uri: selectedImage! }}
+            style={styles.selectedImage}
+          />
           {analysisState === "loading" && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={styleVariables.mainColor} />
+              <ActivityIndicator
+                size="large"
+                color={styleVariables.mainColor}
+              />
               <Text style={styles.loadingText}>Analyzing...</Text>
             </View>
           )}
@@ -199,17 +131,20 @@ export default function AnalysizesScreen() {
 
       {analysisState === "complete" && (
         <>
+          <Pressable
+            style={styles.uploadButton}
+            onPress={() => {
+              setAnalysisState("idle");
+              setSelectedImage(null);
+            }}
+          >
+            <Text style={styles.uploadButtonText}>Upload Different Image</Text>
+          </Pressable>
           <AnalysizesResult
             topRankings={mockAnalysisResult.topRankings}
             activeEvents={mockAnalysisResult.activeEvents}
             detectedPlayers={mockAnalysisResult.detectedPlayers}
           />
-          <Pressable style={styles.uploadButton} onPress={() => {
-            setAnalysisState("idle");
-            setSelectedImage(null);
-          }}>
-            <Text style={styles.uploadButtonText}>Upload Different Image</Text>
-          </Pressable>
         </>
       )}
     </ScrollView>
@@ -249,41 +184,6 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
-  },
-  resultContainer: {
-    gap: 8,
-  },
-  resultItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: styleVariables.borderColor,
-    gap: 12,
-  },
-  rankNumber: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: styleVariables.mainColor,
-  },
-  playerName: {
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  score: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "bold",
   },
   uploadButton: {
     backgroundColor: styleVariables.mainColor,
