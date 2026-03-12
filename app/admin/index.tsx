@@ -49,8 +49,10 @@ export default function AdminDashboard() {
       contentContainerStyle={[container.padding, container.gap]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
     >
-      <Text style={headers.h1}>Admin Dashboard</Text>
-      <Text style={[headers.h4, { marginBottom: 4 }]}>Welcome, {user?.username}</Text>
+      <View>
+        <Text style={headers.h1}>Admin Dashboard</Text>
+        <Text style={[headers.h4, { marginBottom: 4 }]}>Welcome, {user?.username}</Text>
+      </View>
 
       <View style={styles.statsGrid}>
         <StatCard label="Total Users" value={String(users.length)} color="#9333EA" />

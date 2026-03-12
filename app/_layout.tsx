@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function HeaderTitle() {
   return (
@@ -21,19 +21,20 @@ function RootLayoutInner() {
   const router = useRouter();
   const segments = useSegments();
 
-  const inAuthScreen =
-    segments[0] === 'login' || segments[0] === 'register';
+  // index (/) and register are the only unauthenticated screens
+  const inAuthScreen = !segments[0] || segments[0] === 'register';
 
   useEffect(() => {
     if (isLoading) return;
     if (!user && !inAuthScreen) {
-      router.replace('/login');
+      router.replace('/');
+    } else if (user && inAuthScreen) {
+      router.replace(user.role === 'admin' ? '/admin' : '/dashboard');
     }
   }, [user, isLoading, segments]);
 
-  // Show spinner while loading auth state, or while waiting for the
-  // redirect to /login to complete (prevents any flash of app content)
-  if (isLoading || (!user && !inAuthScreen)) {
+  // Show spinner while loading auth state or while a redirect is in-flight
+  if (isLoading || (!user && !inAuthScreen) || (!!user && inAuthScreen)) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={styleVariables.mainColor} />
@@ -52,14 +53,7 @@ function RootLayoutInner() {
             <Pressable onPress={() => router.push('/profile' as any)}>
               <Ionicons name="person-circle-outline" size={26} color="#000" />
             </Pressable>
-            <Pressable
-              onPress={() =>
-                Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Sign Out', style: 'destructive', onPress: logout },
-                ])
-              }
-            >
+            <Pressable onPress={logout}>
               <Ionicons name="log-out-outline" size={26} color="#000" />
             </Pressable>
           </View>
@@ -67,11 +61,11 @@ function RootLayoutInner() {
       }}
     >
       {/* Auth screens — no header */}
-      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
 
       {/* App screens — use shared header above */}
-      <Stack.Screen name="index" options={{ headerBackVisible: false }} />
+      <Stack.Screen name="dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: 'My Profile' }} />
       <Stack.Screen name="game/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="admin" options={{ headerShown: false }} />

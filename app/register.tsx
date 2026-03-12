@@ -83,7 +83,7 @@ export default function RegisterScreen() {
           )}
         </Pressable>
 
-        <Pressable onPress={() => router.push('/login')}>
+        <Pressable onPress={() => router.push('/')}>
           <Text style={styles.link}>
             Already have an account? <Text style={styles.linkHighlight}>Sign In</Text>
           </Text>

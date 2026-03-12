@@ -1,115 +1,143 @@
-import GameTitleSections from '@/components/GameTitleSelections';
-import { useAuth } from '@/context/AuthContext';
-import { container, headers, styleVariables } from '@/constants/styles';
-import { apiGet, Game } from '@/services/api';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { styleVariables } from "@/constants/styles";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
-} from 'react-native';
+} from "react-native";
 
-export default function Index() {
+export default function LoginScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function loadGames() {
+  async function handleLogin() {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+    setLoading(true);
     try {
-      setError(null);
-      const data = await apiGet<Game[]>('/api/games');
-      setGames(data || []);
+      await login(email.trim(), password);
+      // _layout.tsx auth guard redirects to /admin or /games after user state updates
     } catch (e: any) {
-      setError(e.message || 'Failed to load games');
+      Alert.alert("Login Failed", e.message || "Invalid credentials");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }
 
-  useEffect(() => { loadGames(); }, []);
-
   return (
-    <ScrollView
-      contentContainerStyle={[container.padding, container.gap, { flexGrow: 1 }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); loadGames(); }}
-        />
-      }
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.topRow}>
-        <Text style={headers.h1}>Pick a game to analyze</Text>
-        {user?.role === 'admin' && (
-          <Pressable style={styles.adminBtn} onPress={() => router.push('/admin' as any)}>
-            <Ionicons name="shield-checkmark" size={16} color="#fff" />
-            <Text style={styles.adminBtnText}>Admin</Text>
-          </Pressable>
-        )}
-      </View>
+      <View style={styles.inner}>
+        <Text style={styles.title}>VLK Analyzer</Text>
+        <Text style={styles.subtitle}>Sign in to your account</Text>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={styleVariables.mainColor} />
-          <Text style={headers.h4}>Loading games...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={loadGames}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </Pressable>
-        </View>
-      ) : games.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={headers.h4}>No games available.</Text>
-        </View>
-      ) : (
-        <GameTitleSections items={games} />
-      )}
-    </ScrollView>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#aaa"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#aaa"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <Pressable
+          style={styles.button}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/register")}>
+          <Text style={styles.link}>
+            Don&apos;t have an account?{" "}
+            <Text style={styles.linkHighlight}>Register</Text>
+          </Text>
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  adminBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#7C3AED',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-  },
-  adminBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
-  centered: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 40,
+    backgroundColor: "#fff",
   },
-  errorText: { color: '#EF4444', textAlign: 'center' },
-  retryBtn: {
+  inner: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 30,
+    gap: 14,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: styleVariables.mainColor,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: styleVariables.unHighlightTextColor,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: styleVariables.borderColor,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  button: {
     backgroundColor: styleVariables.mainColor,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 6,
   },
-  retryBtnText: { color: '#fff', fontWeight: 'bold' },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  link: {
+    textAlign: "center",
+    color: styleVariables.unHighlightTextColor,
+    fontSize: 14,
+  },
+  linkHighlight: {
+    color: styleVariables.mainColor,
+    fontWeight: "bold",
+  },
 });

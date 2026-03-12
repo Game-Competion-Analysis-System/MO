@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-export default function AdminGames() {
+export default function GamesTab() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

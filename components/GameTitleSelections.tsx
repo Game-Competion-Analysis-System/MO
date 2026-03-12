@@ -3,7 +3,6 @@ import { headers, styleVariables } from '@/constants/styles';
 import { Game } from '@/services/api';
 import { useRouter } from 'expo-router';
 import {
-  FlatList,
   Image,
   Pressable,
   StyleSheet,
@@ -34,18 +33,15 @@ export default function GameTitleSections({ items }: { items: Game[] }) {
   const router = useRouter();
 
   return (
-    <FlatList
-      style={{ flex: 1 }}
-      contentContainerStyle={{ gap: 16 }}
-      data={items}
-      keyExtractor={(item) => String(item.gameid)}
-      renderItem={({ item }) => (
+    <View style={{ gap: 16 }}>
+      {items.map((item) => (
         <GameTitleSection
+          key={String(item.gameid)}
           game={item}
           onPress={() => router.push(`/game/${item.gameid}` as any)}
         />
-      )}
-    />
+      ))}
+    </View>
   );
 }
 
