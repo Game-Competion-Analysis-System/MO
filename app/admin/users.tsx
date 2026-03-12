@@ -51,8 +51,8 @@ export default function UsersScreen() {
     if (!selectedUser) return;
     setDeleting(true);
     try {
-      await apiDelete(`/api/users/${selectedUser.userid}`, true);
-      setUsers((prev) => prev.filter((x) => x.userid !== selectedUser.userid));
+      await apiDelete(`/api/users/${selectedUser.userId}`, true);
+      setUsers((prev) => prev.filter((x) => x.userId !== selectedUser.userId));
       closeModal();
     } catch (e: any) {
       setConfirmingDelete(false);
@@ -85,7 +85,7 @@ export default function UsersScreen() {
 
         {users.map((u) => (
           <TouchableOpacity
-            key={u.userid}
+            key={u.userId}
             style={styles.card}
             onPress={() => openProfile(u)}
             activeOpacity={0.75}
@@ -154,7 +154,7 @@ export default function UsersScreen() {
             <View style={styles.detailsSection}>
               <ProfileRow icon="person-outline" label="Username" value={selectedUser.username} />
               <ProfileRow icon="mail-outline" label="Email" value={selectedUser.email} />
-              <ProfileRow icon="key-outline" label="User ID" value={`#${selectedUser.userid}`} />
+              <ProfileRow icon="key-outline" label="User ID" value={`#${selectedUser.userId}`} />
               <ProfileRow
                 icon="shield-outline"
                 label="Role"

@@ -55,10 +55,10 @@ export default function DashboardHome() {
             <Text style={headers.h4}>No analyses yet. Pick a game to get started!</Text>
           ) : (
             analyses.slice(0, 5).map((a) => (
-              <View key={a.analysisid} style={styles.card}>
-                <Text style={headers.h4}>Analysis #{a.analysisid}</Text>
-                <Text style={headers.h3}>{(a.confidencescore * 100).toFixed(1)}% confidence</Text>
-                <Text style={headers.h4}>{a.aiextractedfields?.length ?? 0} fields extracted</Text>
+              <View key={a.analysisId} style={styles.card}>
+                <Text style={headers.h4}>Analysis #{a.analysisId}</Text>
+                <Text style={headers.h3}>{((a.confidenceScore ?? 0) * 100).toFixed(1)}% confidence</Text>
+                <Text style={headers.h4}>{a.aiExtractedFields?.length ?? 0} fields extracted</Text>
               </View>
             ))
           )}

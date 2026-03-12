@@ -1,5 +1,5 @@
 import { container, headers, styleVariables } from '@/constants/styles';
-import { AiAnalysis, apiGet, apiPostForm, Leaderboard, LeaderboardEntry } from '@/services/api';
+import { AnalysisSummary, apiPostForm, LeaderboardPlayer } from '@/services/api';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
@@ -20,8 +20,8 @@ type AnalysisState = 'idle' | 'loading' | 'complete';
 export default function AnalysizesScreen() {
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [result, setResult] = useState<AiAnalysis | null>(null);
-  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[] | null>(null);
+  const [result, setResult] = useState<AnalysisSummary | null>(null);
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardPlayer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function pickImage() {
@@ -33,7 +33,8 @@ export default function AnalysizesScreen() {
 
     if (pickerResult.canceled) return;
 
-    const uri = pickerResult.assets[0].uri;
+    const asset = pickerResult.assets[0];
+    const uri = asset.uri;
     setSelectedImage(uri);
     setAnalysisState('loading');
     setError(null);
@@ -41,33 +42,19 @@ export default function AnalysizesScreen() {
     setLeaderboardEntries(null);
 
     try {
-      const filename = uri.split('/').pop() || 'image.jpg';
+      const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const filename = asset.fileName ?? `upload.${ext}`;
+
+      const fileResponse = await fetch(uri);
+      const blob = await fileResponse.blob();
+
       const formData = new FormData();
-      formData.append('file', { uri, name: filename, type: 'image/jpeg' } as any);
+      formData.append('file', blob, filename);
 
-      // POST /api/ai/analyze — this also creates the leaderboard in the same request
-      const analysis = await apiPostForm<AiAnalysis>('/api/ai/analyze', formData, true);
+      // POST /api/ai/analyze — response includes flat leaderboard array
+      const analysis = await apiPostForm<AnalysisSummary>('/api/ai/analyze', formData, true);
       setResult(analysis);
-
-      // The backend already creates a Leaderboard during analysis.
-      // Find it by createdfromanalysisid, then fetch its entries.
-      try {
-        const allLeaderboards = await apiGet<Leaderboard[]>('/api/leaderboard');
-        const lb = allLeaderboards?.find(
-          (l) => l.createdfromanalysisid === analysis.analysisid
-        );
-        if (lb) {
-          const entries = await apiGet<LeaderboardEntry[]>(
-            `/api/leaderboard/${lb.leaderboardid}/entries`
-          );
-          setLeaderboardEntries(entries || []);
-        } else {
-          setLeaderboardEntries([]);
-        }
-      } catch {
-        // Leaderboard fetch failure is non-fatal
-        setLeaderboardEntries([]);
-      }
+      setLeaderboardEntries(analysis.leaderboard || []);
 
       setAnalysisState('complete');
     } catch (e: any) {
@@ -123,42 +110,19 @@ export default function AnalysizesScreen() {
           {/* Analysis metadata */}
           <View style={styles.resultHeader}>
             <Text style={headers.h2}>Analysis Result</Text>
-            <View style={styles.confidenceBadge}>
-              <Text style={styles.confidenceText}>
-                {((result.confidencescore ?? 0) * 100).toFixed(1)}% confidence
-              </Text>
-            </View>
+            {result.gameName && (
+              <View style={styles.confidenceBadge}>
+                <Text style={styles.confidenceText}>{result.gameName}</Text>
+              </View>
+            )}
           </View>
           <Text style={headers.h4}>
-            Processed: {result.processedtime ? moment(result.processedtime).format('MMM D, YYYY HH:mm') : '—'}
+            Processed: {result.processedTime ? moment(result.processedTime).format('MMM D, YYYY HH:mm') : '—'}
           </Text>
-          <Text style={headers.h4}>Model: {result.aimodelversion ?? '—'}</Text>
+          {result.serverName && <Text style={headers.h4}>Server: {result.serverName}</Text>}
+          {result.eventName && <Text style={headers.h4}>Event: {result.eventName}</Text>}
 
-          {/* Extracted fields */}
-          {result.aiextractedfields && result.aiextractedfields.length > 0 ? (
-            <>
-              <Text style={headers.h2}>Extracted Data</Text>
-              {groupByFieldType(result.aiextractedfields).map(([type, fields]) => (
-                <View key={type} style={styles.fieldGroup}>
-                  <Text style={styles.fieldGroupTitle}>{formatFieldType(type)}</Text>
-                  {fields.map((f) => (
-                    <View key={f.fieldid} style={styles.fieldRow}>
-                      <Text style={styles.fieldText}>{f.rawtext}</Text>
-                      <Text style={styles.fieldConfidence}>
-                        {((f.confidence ?? 0) * 100).toFixed(0)}%
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
-            </>
-          ) : (
-            <View style={styles.emptyBox}>
-              <Text style={headers.h4}>No structured data extracted from this image.</Text>
-            </View>
-          )}
-
-          {/* Leaderboard entries (created automatically during analysis) */}
+          {/* Players extracted from analysis */}
           <Text style={headers.h2}>Leaderboard Entries</Text>
           {leaderboardEntries === null ? (
             <ActivityIndicator color={styleVariables.mainColor} />
@@ -167,17 +131,18 @@ export default function AnalysizesScreen() {
               <Text style={headers.h4}>No leaderboard entries found for this analysis.</Text>
             </View>
           ) : (
-            leaderboardEntries.map((entry) => (
-              <View key={entry.entryid} style={styles.leaderboardRow}>
+            leaderboardEntries.map((entry, i) => (
+              <View key={i} style={styles.leaderboardRow}>
                 <View style={styles.rankCircle}>
                   <Text style={styles.rankText}>#{entry.rank}</Text>
                 </View>
-                <View>
-                  <Text style={headers.h3}>
-                    {entry.player?.playername ?? `Player #${entry.playerid}`}
-                  </Text>
-                  <Text style={headers.h4}>Score: {entry.value}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={headers.h3}>{entry.playerName}</Text>
+                  {entry.guildName && <Text style={headers.h4}>{entry.guildName}</Text>}
                 </View>
+                <Text style={[headers.h3, { color: styleVariables.mainColor }]}>
+                  {entry.score.toLocaleString()}
+                </Text>
               </View>
             ))
           )}
@@ -187,19 +152,6 @@ export default function AnalysizesScreen() {
   );
 }
 
-function groupByFieldType(fields: AiAnalysis['aiextractedfields']) {
-  const map = new Map<string, typeof fields>();
-  for (const f of fields) {
-    const arr = map.get(f.fieldtype) ?? [];
-    arr.push(f);
-    map.set(f.fieldtype, arr);
-  }
-  return [...map.entries()];
-}
-
-function formatFieldType(type: string) {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 const styles = StyleSheet.create({
   fileSelector: {

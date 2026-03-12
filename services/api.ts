@@ -6,60 +6,79 @@ export const USER_KEY = "auth_user";
 
 // --- Types ---
 export interface User {
-  userid: number;
+  userId: number;
   username: string;
   email: string;
   role: string;
-  passwordhash?: string;
+  passwordHash?: string;
 }
 
 export interface Game {
-  gameid: number;
-  gamename: string;
+  gameId: number;
+  gameName: string;
   genre: string;
-  companyid: number;
+  companyId: number;
 }
 
 export interface Company {
-  companyid: number;
-  companyname: string;
+  companyId: number;
+  companyName: string;
   country: string;
   website: string;
 }
 
 export interface AiExtractedField {
-  fieldid: number;
-  analysisid: number;
-  rawtext: string;
-  fieldtype: string;
+  fieldId: number;
+  analysisId: number;
+  rawText: string;
+  fieldType: string;
   confidence: number;
 }
 
 export interface AiAnalysis {
-  analysisid: number;
-  uploadid: number;
-  aimodelversion: string;
-  confidencescore: number;
-  processedtime: string;
-  aiextractedfields: AiExtractedField[];
+  analysisId: number;
+  uploadId: number | null;
+  aiModelVersion: string | null;
+  confidenceScore: number | null;
+  processedTime: string | null;
+  aiExtractedFields: AiExtractedField[];
+}
+
+// Flat DTO returned by GET /api/ai, GET /api/ai/{id}, POST /api/ai/analyze
+export interface AnalysisSummary {
+  analysisId: number;
+  gameId: number | null;
+  imageUrl: string | null;
+  processedTime: string | null;
+  gameName: string | null;
+  serverName: string | null;
+  eventName: string | null;
+  leaderboard: LeaderboardPlayer[];
+}
+
+export interface LeaderboardPlayer {
+  rank: number;
+  playerName: string;
+  score: number;
+  guildName: string | null;
 }
 
 export interface LeaderboardEntry {
-  entryid: number;
-  leaderboardid: number;
-  playerid: number;
+  entryId: number;
+  leaderboardId: number;
+  playerId: number;
   rank: number;
   value: number;
-  player?: { playerid: number; playername: string };
+  player?: { playerId: number; playerName: string };
 }
 
 export interface Leaderboard {
-  leaderboardid: number;
-  eventid: number | null;
+  leaderboardId: number;
+  eventId: number | null;
   title: string | null;
-  metrictype: string | null;
-  createdfromanalysisid: number | null;
-  leaderboardentries: LeaderboardEntry[];
+  metricType: string | null;
+  createdFromAnalysisId: number | null;
+  leaderboardEntries: LeaderboardEntry[];
 }
 
 // --- Helpers ---
@@ -118,14 +137,26 @@ export async function apiPostForm<T>(
   form: FormData,
   auth = false,
 ): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (auth) Object.assign(headers, await getAuthHeader());
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers,
-    body: form,
+  const authHeaders = auth ? await getAuthHeader() : {};
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE_URL}${path}`);
+    Object.entries(authHeaders).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); } catch { resolve(undefined as T); }
+      } else {
+        let message = xhr.responseText || `HTTP ${xhr.status}`;
+        try {
+          const json = JSON.parse(xhr.responseText);
+          message = json.message || json.title || json.detail || message;
+        } catch {}
+        reject(new Error(message));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(form);
   });
-  return handleResponse<T>(res);
 }
 
 export async function apiPut<T>(

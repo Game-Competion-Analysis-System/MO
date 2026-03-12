@@ -1,25 +1,25 @@
-import { files } from '@/constants/files';
-import { headers, styleVariables } from '@/constants/styles';
-import { Game } from '@/services/api';
-import { useRouter } from 'expo-router';
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { files } from "@/constants/files";
+import { headers, styleVariables } from "@/constants/styles";
+import { Game } from "@/services/api";
+import { useRouter } from "expo-router";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-function GameTitleSection({ game, onPress }: { game: Game; onPress: () => void }) {
+function GameTitleSection({
+  game,
+  onPress,
+}: {
+  game: Game;
+  onPress: () => void;
+}) {
   return (
     <Pressable onPress={onPress}>
       <View style={styles.gameTitleContainer}>
         <Image
           source={files.placeHolderImageGameThumbnail}
-          style={{ width: '100%', height: 208 }}
+          style={{ width: "100%", height: 208 }}
         />
         <View style={styles.gameInfo}>
-          <Text style={headers.h2}>{game.gamename}</Text>
+          <Text style={headers.h2}>{game.gameName}</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{game.genre}</Text>
           </View>
@@ -36,9 +36,9 @@ export default function GameTitleSections({ items }: { items: Game[] }) {
     <View style={{ gap: 16 }}>
       {items.map((item) => (
         <GameTitleSection
-          key={String(item.gameid)}
+          key={String(item.gameId)}
           game={item}
-          onPress={() => router.push(`/game/${item.gameid}` as any)}
+          onPress={() => router.push(`/game/${encodeURIComponent(item.gameName)}` as any)}
         />
       ))}
     </View>
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   gameTitleContainer: {
     gap: 8,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: styleVariables.borderColor,
   },
@@ -59,15 +59,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#E0FDF4',
+    alignSelf: "flex-start",
+    backgroundColor: "#E0FDF4",
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 20,
   },
   badgeText: {
-    color: '#065F46',
+    color: "#065F46",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

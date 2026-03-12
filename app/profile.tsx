@@ -56,12 +56,12 @@ export default function ProfileScreen() {
 
     setSaving(true);
     try {
-      // Send back the full user object — preserve passwordhash unless changing
+      // Send back the full user object — preserve passwordHash unless changing
       const payload: User = {
         ...profile!,
         username: username.trim(),
         email: email.trim(),
-        passwordhash: newPassword.trim() || profile?.passwordhash,
+        passwordHash: newPassword.trim() || profile?.passwordHash,
       };
       const updated = await apiPut<User>('/api/users/profile', payload, true);
       setProfile(updated);

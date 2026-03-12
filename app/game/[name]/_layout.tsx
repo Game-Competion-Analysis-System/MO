@@ -1,18 +1,33 @@
 import { styleVariables } from "@/constants/styles";
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import { Tabs, useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable } from "react-native";
 
 function BackButton() {
   const router = useRouter();
+  const navigation = useNavigation();
+
+  function handleBack() {
+    const parent = navigation.getParent();
+    if (parent?.canGoBack()) {
+      parent.goBack();
+    } else {
+      router.replace("/dashboard" as any);
+    }
+  }
+
   return (
-    <Pressable onPress={() => router.back()} style={{ paddingLeft: 10 }}>
+    <Pressable onPress={handleBack} style={{ paddingLeft: 10 }}>
       <Ionicons name="arrow-back" size={24} color="#000" />
     </Pressable>
   );
 }
 
 export default function GameTabsLayout() {
+  const { name } = useLocalSearchParams<{ name: string }>();
+  const gameName = decodeURIComponent(name ?? '');
+
   return (
     <Tabs
       screenOptions={{
@@ -21,6 +36,7 @@ export default function GameTabsLayout() {
           backgroundColor: styleVariables.mainColor,
         },
         headerTitleAlign: "center",
+        headerTitle: gameName,
         headerLeft: () => <BackButton />,
         tabBarActiveTintColor: styleVariables.mainColor,
         tabBarInactiveTintColor: "#888",

@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   }
 
   const avgAccuracy = analyses.length
-    ? (analyses.reduce((s, a) => s + (a.confidencescore || 0), 0) / analyses.length * 100).toFixed(1)
+    ? (analyses.reduce((s, a) => s + (a.confidenceScore || 0), 0) / analyses.length * 100).toFixed(1)
     : '—';
 
   return (
@@ -63,10 +63,10 @@ export default function AdminDashboard() {
 
       <Text style={headers.h2}>Recent Analyses</Text>
       {analyses.slice(0, 5).map((a) => (
-        <View key={a.analysisid} style={styles.card}>
-          <Text style={headers.h4}>Analysis #{a.analysisid}</Text>
-          <Text style={headers.h3}>{(a.confidencescore * 100).toFixed(1)}% confidence</Text>
-          <Text style={headers.h4}>{a.aiextractedfields?.length ?? 0} fields extracted</Text>
+        <View key={a.analysisId} style={styles.card}>
+          <Text style={headers.h4}>Analysis #{a.analysisId}</Text>
+          <Text style={headers.h3}>{((a.confidenceScore ?? 0) * 100).toFixed(1)}% confidence</Text>
+          <Text style={headers.h4}>{a.aiExtractedFields?.length ?? 0} fields extracted</Text>
         </View>
       ))}
       {analyses.length === 0 && (
