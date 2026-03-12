@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/NGHIA/Project/MO/components -type f -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | head -20)",
+      "Bash(ls -la '/c/Users/NGHIA/Project/MO/app/\\(tabs\\)/' 2>/dev/null)",
+      "Bash(npx expo:*)",
+      "Bash(find /c/Users/NGHIA/Project/MO/app /c/Users/NGHIA/Project/MO/services /c/Users/NGHIA/Project/MO/context -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | sort)"
+    ]
+  }
+}

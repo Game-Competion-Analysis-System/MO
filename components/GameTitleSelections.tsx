@@ -1,6 +1,7 @@
-import { files } from "@/constants/files";
-import { headers } from "@/constants/styles";
-import { useRouter } from "expo-router";
+import { files } from '@/constants/files';
+import { headers, styleVariables } from '@/constants/styles';
+import { Game } from '@/services/api';
+import { useRouter } from 'expo-router';
 import {
   FlatList,
   Image,
@@ -8,54 +9,40 @@ import {
   StyleSheet,
   Text,
   View,
-} from "react-native";
+} from 'react-native';
 
-function GameTitleSection({
-  title,
-  img,
-  onPress,
-}: {
-  title: string;
-  img: string;
-  onPress: () => void;
-}) {
+function GameTitleSection({ game, onPress }: { game: Game; onPress: () => void }) {
   return (
     <Pressable onPress={onPress}>
       <View style={styles.gameTitleContainer}>
         <Image
           source={files.placeHolderImageGameThumbnail}
-          style={{
-            width: "100%",
-            height: 208,
-          }}
+          style={{ width: '100%', height: 208 }}
         />
-        <Text style={headers.h2}>{title}</Text>
+        <View style={styles.gameInfo}>
+          <Text style={headers.h2}>{game.gamename}</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{game.genre}</Text>
+          </View>
+        </View>
       </View>
     </Pressable>
   );
 }
 
-export default function GameTitleSections({
-  items,
-}: {
-  items: { title: string; img: string }[];
-}) {
+export default function GameTitleSections({ items }: { items: Game[] }) {
   const router = useRouter();
 
   return (
     <FlatList
-      style={{
-        flex: 1,
-      }}
-      contentContainerStyle={{
-        gap: 16,
-      }}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ gap: 16 }}
       data={items}
-      renderItem={({ item, index }) => (
+      keyExtractor={(item) => String(item.gameid)}
+      renderItem={({ item }) => (
         <GameTitleSection
-          title={item.title}
-          img={item.img}
-          onPress={() => router.push(`/game/${String(index + 1)}` as any)}
+          game={item}
+          onPress={() => router.push(`/game/${item.gameid}` as any)}
         />
       )}
     />
@@ -64,6 +51,27 @@ export default function GameTitleSections({
 
 const styles = StyleSheet.create({
   gameTitleContainer: {
-    gap: 10,
+    gap: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: styleVariables.borderColor,
+  },
+  gameInfo: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 4,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  badgeText: {
+    color: '#065F46',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
