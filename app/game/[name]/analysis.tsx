@@ -1,17 +1,19 @@
 import { container, headers, styleVariables } from "@/constants/styles";
-import { AnalysisSummary, apiGet } from "@/services/api";
+import { AnalysisSummary, User, apiGet } from "@/services/api";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useGlobalSearchParams } from "expo-router";
 import moment from "moment";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import Svg, {
@@ -29,13 +31,15 @@ const PL = 40,
   PT = 8,
   PR = 8;
 
-function LineChart({
-  data,
-  color,
-}: {
-  data: { label: string; value: number }[];
-  color: string;
-}) {
+type ChartPoint = { dayKey: string; exactTime: string; value: number; timestamp: number };
+
+function LineChart({ data, color }: { data: ChartPoint[]; color: string }) {
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    point: ChartPoint;
+  } | null>(null);
+
   if (!data.length) {
     return (
       <View style={styles.emptyChart}>
@@ -43,83 +47,138 @@ function LineChart({
       </View>
     );
   }
+
   const maxV = Math.max(...data.map((d) => d.value), 1);
   const iW = SCREEN_W - PL - PR;
   const iH = CH - PB - PT;
-  const xOf = (i: number) =>
-    PL + (data.length === 1 ? iW / 2 : (i / (data.length - 1)) * iW);
+  const minT = Math.min(...data.map((d) => d.timestamp));
+  const maxT = Math.max(...data.map((d) => d.timestamp));
+  const rangeT = maxT - minT || 1;
+  const xOf = (ts: number) =>
+    data.length === 1 ? PL + iW / 2 : PL + ((ts - minT) / rangeT) * iW;
   const yOf = (v: number) => PT + iH * (1 - v / maxV);
-  const pts = data.map((d, i) => `${xOf(i)},${yOf(d.value)}`).join(" ");
+  const pts = data.map((d) => `${xOf(d.timestamp)},${yOf(d.value)}`).join(" ");
+
+  // One label per unique day, positioned at the earliest point of that day
+  const dayTicks: [string, number][] = [];
+  const seenDays = new Set<string>();
+  for (const d of data) {
+    if (!seenDays.has(d.dayKey)) {
+      seenDays.add(d.dayKey);
+      dayTicks.push([d.dayKey, d.timestamp]);
+    }
+  }
 
   return (
-    <Svg width={SCREEN_W} height={CH}>
-      <Line
-        x1={PL}
-        y1={PT}
-        x2={PL}
-        y2={CH - PB}
-        stroke="#ddd"
-        strokeWidth={1}
-      />
-      <Line
-        x1={PL}
-        y1={CH - PB}
-        x2={SCREEN_W - PR}
-        y2={CH - PB}
-        stroke="#ddd"
-        strokeWidth={1}
-      />
-      {[0, 0.5, 1].map((r) => {
-        const y = PT + iH * (1 - r);
-        return (
-          <G key={r}>
-            <Line
-              x1={PL}
-              y1={y}
-              x2={SCREEN_W - PR}
-              y2={y}
-              stroke="#f0f0f0"
-              strokeWidth={1}
-            />
-            <SvgText
-              x={PL - 4}
-              y={y + 4}
-              fontSize={9}
-              textAnchor="end"
-              fill="#999"
-            >
-              {maxV >= 1000000
-                ? `${((maxV * r) / 1000000).toFixed(1)}M`
-                : Math.round(maxV * r)}
-            </SvgText>
-          </G>
-        );
-      })}
-      {data.length > 1 && (
-        <Polyline points={pts} fill="none" stroke={color} strokeWidth={2} />
-      )}
-      {data.map((d, i) => (
-        <G key={i}>
-          <Circle
-            cx={xOf(i)}
-            cy={yOf(d.value)}
-            r={4}
-            fill={color}
-            stroke="#fff"
-            strokeWidth={1.5}
+    <View>
+      <Svg width={SCREEN_W} height={CH} onPress={() => setTooltip(null)}>
+        <Line
+          x1={PL}
+          y1={PT}
+          x2={PL}
+          y2={CH - PB}
+          stroke="#ddd"
+          strokeWidth={1}
+        />
+        <Line
+          x1={PL}
+          y1={CH - PB}
+          x2={SCREEN_W - PR}
+          y2={CH - PB}
+          stroke="#ddd"
+          strokeWidth={1}
+        />
+        {[0, 0.5, 1].map((r) => {
+          const y = PT + iH * (1 - r);
+          return (
+            <G key={r}>
+              <Line
+                x1={PL}
+                y1={y}
+                x2={SCREEN_W - PR}
+                y2={y}
+                stroke="#f0f0f0"
+                strokeWidth={1}
+              />
+              <SvgText
+                x={PL - 4}
+                y={y + 4}
+                fontSize={9}
+                textAnchor="end"
+                fill="#999"
+              >
+                {maxV >= 1000000
+                  ? `${((maxV * r) / 1000000).toFixed(1)}M`
+                  : Math.round(maxV * r)}
+              </SvgText>
+            </G>
+          );
+        })}
+        {data.length > 1 && (
+          <Polyline
+            points={pts}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeOpacity={0.4}
           />
+        )}
+        {dayTicks.map(([day, ts]) => (
           <SvgText
-            x={xOf(i)}
+            key={day}
+            x={xOf(ts)}
             y={CH - PB + 14}
             fontSize={9}
             textAnchor="middle"
             fill="#666"
           >
-            {d.label}
+            {day}
           </SvgText>
-        </G>
-      ))}
-    </Svg>
+        ))}
+        {data.map((d, i) => {
+          const cx = xOf(d.timestamp);
+          const cy = yOf(d.value);
+          const isActive = tooltip?.point === d;
+          return (
+            <G
+              key={i}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                setTooltip(isActive ? null : { x: cx, y: cy, point: d });
+              }}
+            >
+              <Circle
+                cx={cx}
+                cy={cy}
+                r={isActive ? 7 : 5}
+                fill={color}
+                stroke="#fff"
+                strokeWidth={1.5}
+              />
+            </G>
+          );
+        })}
+      </Svg>
+      {tooltip && (
+        <View
+          style={[
+            styles.tooltip,
+            {
+              left: Math.min(Math.max(tooltip.x - 60, 0), SCREEN_W - 130),
+              top: Math.max(tooltip.y - 52, 0),
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.tooltipTime}>{tooltip.point.exactTime}</Text>
+          <Text style={styles.tooltipValue}>
+            {tooltip.point.value >= 1000000
+              ? `${(tooltip.point.value / 1000000).toFixed(2)}M`
+              : tooltip.point.value.toLocaleString()}
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -129,19 +188,37 @@ export default function AnalysisScreen() {
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  type TimeFilter = "all" | "28d" | "7d" | "24h";
+  const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
+    all: "All Time",
+    "28d": "Last 28 Days",
+    "7d": "Last 7 Days",
+    "24h": "Last 24 Hours",
+  };
+
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("28d");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [playerDropdownOpen, setPlayerDropdownOpen] = useState(false);
+  const [registeredUsers, setRegisteredUsers] = useState<string[]>([]);
+  const searchRef = useRef<TextInput>(null);
 
   async function load() {
     try {
-      const data = await apiGet<AnalysisSummary[]>("/api/ai", true);
+      const [data, users] = await Promise.all([
+        apiGet<AnalysisSummary[]>("/api/ai", true),
+        apiGet<User[]>("/api/users", true).catch(() => [] as User[]),
+      ]);
       const filtered = (data || [])
-        .filter((a) => a.gameName === gameName)
+        // .filter((a) => a.gameName === gameName)
         .sort(
           (a, b) =>
             moment(b.processedTime).valueOf() -
             moment(a.processedTime).valueOf(),
         );
       setAnalyses(filtered);
+      setRegisteredUsers((users || []).map((u) => u.username).filter(Boolean));
     } catch {
     } finally {
       setLoading(false);
@@ -153,54 +230,69 @@ export default function AnalysisScreen() {
     load();
   }, [name]);
 
-  const players = useMemo(() => {
-    const set = new Set<string>();
-    analyses.forEach((a) =>
+  const visibleAnalyses = useMemo(() => {
+    if (timeFilter === "all") return analyses;
+    const hours = timeFilter === "24h" ? 24 : timeFilter === "7d" ? 168 : 672;
+    const cutoff = moment().subtract(hours, "hours");
+    return analyses.filter(
+      (a) => a.processedTime && moment(a.processedTime).isAfter(cutoff),
+    );
+  }, [analyses, timeFilter]);
+
+  const allPlayerNames = useMemo(() => {
+    const set = new Set<string>(registeredUsers);
+    visibleAnalyses.forEach((a) =>
       (a.leaderboard || []).forEach((e) => {
         if (e.playerName) set.add(e.playerName);
       }),
     );
-    return [...set];
-  }, [analyses]);
+    return [...set].sort();
+  }, [visibleAnalyses, registeredUsers]);
 
-  const chartData = useMemo(() => {
-    const map = new Map<
-      string,
-      { sortKey: number; count: number; scores: number[] }
-    >();
+  const filteredPlayerNames = useMemo(
+    () =>
+      playerSearch.trim()
+        ? allPlayerNames.filter((p) =>
+            p.toLowerCase().includes(playerSearch.toLowerCase()),
+          )
+        : allPlayerNames,
+    [allPlayerNames, playerSearch],
+  );
 
-    analyses.forEach((a) => {
-      if (!a.processedTime) return;
-      const m = moment(a.processedTime);
-      const key = m.format("MMM YY");
-      if (!map.has(key))
-        map.set(key, { sortKey: m.valueOf(), count: 0, scores: [] });
-      const entry = map.get(key)!;
-      entry.count++;
-
-      if (selectedPlayer) {
-        (a.leaderboard || []).forEach((e) => {
-          if (e.playerName === selectedPlayer) entry.scores.push(e.score);
+  const chartData = useMemo((): ChartPoint[] => {
+    const sorted = [...visibleAnalyses].sort(
+      (a, b) =>
+        moment(a.processedTime).valueOf() - moment(b.processedTime).valueOf(),
+    );
+    if (selectedPlayer) {
+      return sorted
+        .filter((a) =>
+          (a.leaderboard || []).some((e) => e.playerName === selectedPlayer),
+        )
+        .map((a) => {
+          const entry = (a.leaderboard || []).find(
+            (e) => e.playerName === selectedPlayer,
+          )!;
+          return {
+            dayKey: moment(a.processedTime).format("MMM D"),
+            exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
+            value: entry.score,
+            timestamp: moment(a.processedTime).valueOf(),
+          };
         });
-      }
-    });
-
-    return [...map.entries()]
-      .sort(([, a], [, b]) => a.sortKey - b.sortKey)
-      .map(([label, d]) => ({
-        label,
-        value: selectedPlayer
-          ? d.scores.length
-            ? Math.round(d.scores.reduce((s, v) => s + v, 0) / d.scores.length)
-            : 0
-          : d.count,
-      }));
-  }, [analyses, selectedPlayer]);
+    }
+    return sorted.map((a) => ({
+      dayKey: moment(a.processedTime).format("MMM D"),
+      exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
+      value: (a.leaderboard || []).length,
+      timestamp: moment(a.processedTime).valueOf(),
+    }));
+  }, [visibleAnalyses, selectedPlayer]);
 
   const thisMonth = analyses.filter((a) =>
     moment(a.processedTime).isSame(moment(), "month"),
   );
-  const allPlayers = analyses.flatMap((a) => a.leaderboard || []);
+  const allPlayers = visibleAnalyses.flatMap((a) => a.leaderboard || []);
   const topPlayer = allPlayers.length
     ? allPlayers.reduce((best, e) => (e.score > best.score ? e : best))
     : null;
@@ -220,15 +312,58 @@ export default function AnalysisScreen() {
     >
       <View style={[container.rowContainer, styles.sectionHeader]}>
         <Text style={headers.h1}>Analytics</Text>
-        <View style={[styles.badge, container.rowContainer]}>
-          <Text style={styles.badgeText}>All Time</Text>
+        <Pressable
+          style={[styles.badge, container.rowContainer]}
+          onPress={() => setDropdownOpen(true)}
+        >
+          <Text style={styles.badgeText}>{TIME_FILTER_LABELS[timeFilter]}</Text>
           <FontAwesome6
             name="arrow-down-short-wide"
             size={14}
             color={styleVariables.unHighlightTextColor}
           />
-        </View>
+        </Pressable>
       </View>
+
+      <Modal
+        visible={dropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDropdownOpen(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setDropdownOpen(false)}
+        >
+          <View style={styles.dropdown}>
+            <Text style={[headers.h3, { marginBottom: 8 }]}>
+              Filter by Period
+            </Text>
+            {(["all", "28d", "7d", "24h"] as TimeFilter[]).map((f) => (
+              <Pressable
+                key={f}
+                style={[
+                  styles.dropdownItem,
+                  timeFilter === f && styles.dropdownItemActive,
+                ]}
+                onPress={() => {
+                  setTimeFilter(f);
+                  setDropdownOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    timeFilter === f && styles.dropdownTextActive,
+                  ]}
+                >
+                  {TIME_FILTER_LABELS[f]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {loading ? (
         <View style={styles.centered}>
@@ -264,38 +399,53 @@ export default function AnalysisScreen() {
             />
           </View>
 
-          {/* Player filter chips */}
-          {players.length > 0 && (
-            <>
-              <Text style={headers.h2}>Filter by Player</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.playerRow}>
-                  <Pressable
-                    style={[styles.chip, !selectedPlayer && styles.chipActive]}
-                    onPress={() => setSelectedPlayer(null)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        !selectedPlayer && styles.chipTextActive,
-                      ]}
-                    >
-                      All
-                    </Text>
-                  </Pressable>
-                  {players.map((p) => (
+          {/* Player search */}
+          {allPlayerNames.length > 0 && (
+            <View style={styles.searchContainer}>
+              <TextInput
+                ref={searchRef}
+                style={styles.searchInput}
+                placeholder="Search player…"
+                placeholderTextColor="#aaa"
+                value={playerSearch}
+                onChangeText={(t) => {
+                  setPlayerSearch(t);
+                  setPlayerDropdownOpen(true);
+                }}
+                onFocus={() => setPlayerDropdownOpen(true)}
+              />
+              {selectedPlayer && (
+                <Pressable
+                  style={styles.clearBtn}
+                  onPress={() => {
+                    setSelectedPlayer(null);
+                    setPlayerSearch("");
+                    setPlayerDropdownOpen(false);
+                  }}
+                >
+                  <Text style={styles.clearBtnText}>✕</Text>
+                </Pressable>
+              )}
+              {playerDropdownOpen && filteredPlayerNames.length > 0 && (
+                <View style={styles.autocompleteList}>
+                  {filteredPlayerNames.slice(0, 8).map((p) => (
                     <Pressable
                       key={p}
                       style={[
-                        styles.chip,
-                        selectedPlayer === p && styles.chipActive,
+                        styles.autocompleteItem,
+                        selectedPlayer === p && styles.autocompleteItemActive,
                       ]}
-                      onPress={() => setSelectedPlayer(p)}
+                      onPress={() => {
+                        setSelectedPlayer(p);
+                        setPlayerSearch(p);
+                        setPlayerDropdownOpen(false);
+                        searchRef.current?.blur();
+                      }}
                     >
                       <Text
                         style={[
-                          styles.chipText,
-                          selectedPlayer === p && styles.chipTextActive,
+                          styles.autocompleteText,
+                          selectedPlayer === p && styles.autocompleteTextActive,
                         ]}
                       >
                         {p}
@@ -303,25 +453,33 @@ export default function AnalysisScreen() {
                     </Pressable>
                   ))}
                 </View>
-              </ScrollView>
-            </>
+              )}
+            </View>
           )}
 
           {/* Chart */}
           <Text style={headers.h2}>
             {selectedPlayer
-              ? `${selectedPlayer} — Avg Score / Month`
-              : "Analyses per Month"}
+              ? `${selectedPlayer} — Score · ${TIME_FILTER_LABELS[timeFilter]}`
+              : `Analyses · ${TIME_FILTER_LABELS[timeFilter]}`}
           </Text>
           <View style={styles.chartBox}>
             <LineChart data={chartData} color={styleVariables.mainColor} />
           </View>
 
-          {/* Monthly summary */}
-          <Text style={headers.h1}>{moment().format("MMMM YYYY")} Details</Text>
+          {/* Summary */}
+          <Text style={headers.h1}>
+            {TIME_FILTER_LABELS[timeFilter]} Details
+          </Text>
           <DetailRow
-            label="Analyses This Month"
-            value={String(thisMonth.length)}
+            label={
+              timeFilter === "all"
+                ? "Analyses This Month"
+                : "Analyses in Period"
+            }
+            value={String(
+              timeFilter === "all" ? thisMonth.length : visibleAnalyses.length,
+            )}
             bg="#EFF6FF"
             border="#BFDBFE"
             textColor="#1D4ED8"
@@ -350,7 +508,7 @@ export default function AnalysisScreen() {
           {selectedPlayer && (
             <>
               <Text style={headers.h2}>{selectedPlayer} — All Entries</Text>
-              {analyses
+              {visibleAnalyses
                 .flatMap((a) =>
                   (a.leaderboard || [])
                     .filter((e) => e.playerName === selectedPlayer)
@@ -457,25 +615,58 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   statLine: { width: "100%", height: 4, borderRadius: 4, marginTop: 4 },
-  playerRow: { flexDirection: "row", gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
+  searchContainer: { position: "relative", zIndex: 10 },
+  searchInput: {
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: styleVariables.borderColor,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
     backgroundColor: "#fff",
+    paddingRight: 40,
   },
-  chipActive: {
-    backgroundColor: styleVariables.mainColor,
-    borderColor: styleVariables.mainColor,
+  clearBtn: {
+    position: "absolute",
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
-  chipText: {
-    fontSize: 13,
-    color: styleVariables.unHighlightTextColor,
+  clearBtnText: { fontSize: 14, color: "#999" },
+  autocompleteList: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: styleVariables.borderColor,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 20,
+  },
+  autocompleteItem: { paddingVertical: 11, paddingHorizontal: 14 },
+  autocompleteItemActive: { backgroundColor: "#f0f0ff" },
+  autocompleteText: { fontSize: 14, color: "#333" },
+  autocompleteTextActive: {
+    color: styleVariables.mainColor,
     fontWeight: "600",
   },
-  chipTextActive: { color: "#fff" },
+  tooltip: {
+    position: "absolute",
+    backgroundColor: "rgba(30,30,30,0.88)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 120,
+    zIndex: 99,
+  },
+  tooltipTime: { color: "#ccc", fontSize: 11 },
+  tooltipValue: { color: "#fff", fontWeight: "700", fontSize: 13 },
   chartBox: {
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
@@ -512,4 +703,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rankText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropdown: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+    minWidth: 200,
+    maxHeight: 360,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  dropdownItemActive: { backgroundColor: styleVariables.mainColor },
+  dropdownText: { fontSize: 15, color: "#333" },
+  dropdownTextActive: { color: "#fff", fontWeight: "600" },
 });
