@@ -24,8 +24,6 @@ export default function ProfileScreen() {
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     loadProfile();
@@ -49,24 +47,14 @@ export default function ProfileScreen() {
       Alert.alert('Error', 'Username and email are required');
       return;
     }
-    if (newPassword && newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
 
     setSaving(true);
     try {
-      // Send back the full user object — preserve passwordHash unless changing
-      const payload: User = {
-        ...profile!,
+      await apiPut<{ message: string }>('/api/users/profile', {
         username: username.trim(),
         email: email.trim(),
-        passwordHash: newPassword.trim() || profile?.passwordHash,
-      };
-      const updated = await apiPut<User>('/api/users/profile', payload, true);
-      setProfile(updated);
-      setNewPassword('');
-      setConfirmPassword('');
+      }, true);
+      setProfile((prev) => prev ? { ...prev, username: username.trim(), email: email.trim() } : prev);
       Alert.alert('Success', 'Profile updated successfully');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update profile');
@@ -136,33 +124,6 @@ export default function ProfileScreen() {
             autoCapitalize="none"
             keyboardType="email-address"
             placeholder="Email"
-            placeholderTextColor="#aaa"
-          />
-        </View>
-
-        <Text style={[headers.h2, { marginTop: 4 }]}>Change Password</Text>
-        <Text style={headers.h4}>Leave blank to keep current password</Text>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>New Password</Text>
-          <TextInput
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-            placeholder="New password"
-            placeholderTextColor="#aaa"
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Confirm Password</Text>
-          <TextInput
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-            placeholder="Confirm new password"
             placeholderTextColor="#aaa"
           />
         </View>

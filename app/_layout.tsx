@@ -29,7 +29,7 @@ function RootLayoutInner() {
     if (!user && !inAuthScreen) {
       router.replace('/');
     } else if (user && inAuthScreen) {
-      router.replace(user.role === 'admin' ? '/admin/games' : '/dashboard/games');
+      router.replace(user.role === 'admin' ? '/admin' : '/dashboard');
     }
   }, [user, isLoading, segments]);
 

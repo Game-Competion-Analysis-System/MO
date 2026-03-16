@@ -45,7 +45,15 @@ export default function AdminLayout() {
         tabBarStyle: { backgroundColor: "#fff", borderTopColor: "#eee" },
       }}
     >
-      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="grid" size={size} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="games"
         options={{
