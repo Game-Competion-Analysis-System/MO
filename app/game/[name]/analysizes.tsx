@@ -1,7 +1,10 @@
 import { container, headers, styleVariables } from '@/constants/styles';
-import { AnalysisSummary, apiPostForm, LeaderboardPlayer } from '@/services/api';
+import { AnalysisSummary, apiGet, apiPostForm, LeaderboardPlayer, PagedResult } from '@/services/api';
+import { sendRankChangeNotification } from '@/services/notifications';
+import { detectRankChanges } from '@/services/rankTracker';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'expo-image-picker';
+import { useGlobalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,11 +21,34 @@ import moment from 'moment';
 type AnalysisState = 'idle' | 'loading' | 'complete';
 
 export default function AnalysizesScreen() {
+  const { name } = useGlobalSearchParams<{ name: string }>();
+  const gameName = decodeURIComponent(name ?? '');
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisSummary | null>(null);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardPlayer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function checkRankChanges(newAnalysis: AnalysisSummary) {
+    const game = newAnalysis.gameName ?? gameName;
+    if (!game || !newAnalysis.leaderboard?.length) return;
+
+    // Fetch recent analyses, find the most recent one that isn't the new one
+    const page = await apiGet<PagedResult<AnalysisSummary>>(
+      `/api/ai?pageSize=10&pageNumber=1&isDescending=true`,
+      true,
+    );
+    const previous = (page.items || [])
+      .filter((a) => a.gameName === game && a.analysisId !== newAnalysis.analysisId)
+      .at(0);
+
+    if (!previous) return;
+
+    const changes = detectRankChanges(newAnalysis, previous);
+    if (changes.length > 0) {
+      await sendRankChangeNotification(game, changes);
+    }
+  }
 
   async function pickImage() {
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
@@ -55,8 +81,10 @@ export default function AnalysizesScreen() {
       const analysis = await apiPostForm<AnalysisSummary>('/api/ai/analyze', formData, true);
       setResult(analysis);
       setLeaderboardEntries(analysis.leaderboard || []);
-
       setAnalysisState('complete');
+
+      // Check for rank changes against most recent previous analysis for this game
+      checkRankChanges(analysis).catch(() => {});  // non-blocking
     } catch (e: any) {
       setError(e.message || 'Analysis failed');
       setAnalysisState('idle');

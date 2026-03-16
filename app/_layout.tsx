@@ -1,6 +1,8 @@
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { icons } from '@/constants/files';
 import { styleVariables } from '@/constants/styles';
+import { registerBackgroundSync, unregisterBackgroundSync } from '@/services/backgroundSync';
+import { requestNotificationPermissions } from '@/services/notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -28,8 +30,12 @@ function RootLayoutInner() {
     if (isLoading) return;
     if (!user && !inAuthScreen) {
       router.replace('/');
+      unregisterBackgroundSync().catch(() => {});
     } else if (user && inAuthScreen) {
       router.replace(user.role === 'admin' ? '/admin' : '/dashboard');
+      requestNotificationPermissions().then((granted) => {
+        if (granted) registerBackgroundSync().catch(() => {});
+      });
     }
   }, [user, isLoading, segments]);
 
