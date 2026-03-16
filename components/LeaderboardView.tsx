@@ -3,6 +3,7 @@ import { container, headers, styleVariables } from "@/constants/styles";
 import {
   apiDelete,
   apiGet,
+  LeaderboardEntryDto,
   LeaderboardEntryRaw,
   LeaderboardRaw,
   PagedResult,
@@ -57,6 +58,30 @@ function EntryRow({ entry, index }: { entry: LeaderboardEntryRaw; index: number 
       </View>
       <Text style={[headers.h3, { color: styleVariables.mainColor }]}>
         {entry.value != null && entry.value > 0 ? entry.value.toLocaleString() : "—"}
+      </Text>
+    </View>
+  );
+}
+
+function TopEntryRow({ entry, index }: { entry: LeaderboardEntryDto; index: number }) {
+  return (
+    <View style={[styles.entryRow, index % 2 === 1 && styles.entryRowAlt]}>
+      <RankCircle rank={entry.rank} />
+      <View style={{ flex: 1 }}>
+        <Text style={headers.h3} numberOfLines={1}>
+          {entry.playerName ?? "Unknown"}
+        </Text>
+        {entry.guildName && (
+          <View style={styles.metaRow}>
+            <View style={styles.tag}>
+              <Ionicons name="shield-outline" size={11} color={styleVariables.unHighlightTextColor} />
+              <Text style={styles.tagText}>{entry.guildName}</Text>
+            </View>
+          </View>
+        )}
+      </View>
+      <Text style={[headers.h3, { color: styleVariables.mainColor }]}>
+        {entry.score > 0 ? entry.score.toLocaleString() : "—"}
       </Text>
     </View>
   );
@@ -198,7 +223,7 @@ export default function LeaderboardView() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  const [topEntries, setTopEntries] = useState<LeaderboardEntryRaw[]>([]);
+  const [topEntries, setTopEntries] = useState<LeaderboardEntryDto[]>([]);
   const [leaderboards, setLeaderboards] = useState<LeaderboardRaw[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -217,7 +242,7 @@ export default function LeaderboardView() {
       nextPage.current = 1;
       hasMore.current = true;
       const [top, page] = await Promise.all([
-        apiGet<LeaderboardEntryRaw[]>("/api/leaderboard/top/20"),
+        apiGet<LeaderboardEntryDto[]>("/api/leaderboard/top/20"),
         apiGet<PagedResult<LeaderboardRaw>>(
           `/api/leaderboard?pageSize=${PAGE_SIZE}&pageNumber=1&isDescending=true`,
         ),
@@ -299,7 +324,7 @@ export default function LeaderboardView() {
               </View>
               <View style={styles.topSection}>
                 {topEntries.map((e, i) => (
-                  <EntryRow key={e.entryid} entry={e} index={i} />
+                  <TopEntryRow key={`top-${e.rank}`} entry={e} index={i} />
                 ))}
               </View>
             </>

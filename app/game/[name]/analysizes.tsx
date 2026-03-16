@@ -1,11 +1,11 @@
 import { container, headers, styleVariables } from '@/constants/styles';
-import { AnalysisSummary, apiGet, apiPostForm, LeaderboardPlayer, PagedResult } from '@/services/api';
+import { AnalysisSummary, apiGet, apiGetAllPaged, apiPostForm, Game, LeaderboardPlayer, PagedResult, ServerDto } from '@/services/api';
 import { sendRankChangeNotification } from '@/services/notifications';
 import { detectRankChanges } from '@/services/rankTracker';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { useGlobalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import moment from 'moment';
@@ -28,6 +29,31 @@ export default function AnalysizesScreen() {
   const [result, setResult] = useState<AnalysisSummary | null>(null);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardPlayer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [servers, setServers] = useState<ServerDto[]>([]);
+  const [serverSearch, setServerSearch] = useState('');
+  const [selectedServer, setSelectedServer] = useState('');
+  const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
+  const serverInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const games = await apiGetAllPaged<Game>('/api/games');
+        const found = games.find(g => g.gameName === gameName);
+        if (!found) return;
+        const list = await apiGet<ServerDto[]>(`/api/servers/game/${found.gameId}`);
+        setServers(list || []);
+      } catch {}
+    })();
+  }, [gameName]);
+
+  const filteredServers = useMemo(
+    () => serverSearch.trim()
+      ? servers.filter(s => s.serverName?.toLowerCase().includes(serverSearch.toLowerCase()))
+      : servers,
+    [servers, serverSearch],
+  );
 
   async function checkRankChanges(newAnalysis: AnalysisSummary) {
     const game = newAnalysis.gameName ?? gameName;
@@ -109,12 +135,81 @@ export default function AnalysizesScreen() {
         </View>
       )}
 
+      {/* Server autocomplete — shown when idle or after analysis */}
+      {analysisState !== 'loading' && (
+        <View style={styles.serverContainer}>
+          <TextInput
+            ref={serverInputRef}
+            style={styles.serverInput}
+            placeholder="Select a server *"
+            placeholderTextColor="#aaa"
+            value={serverSearch}
+            onChangeText={t => {
+              setServerSearch(t);
+              setSelectedServer(t);
+              setServerDropdownOpen(true);
+            }}
+            onFocus={() => setServerDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setServerDropdownOpen(false), 150)}
+          />
+          {selectedServer !== '' && (
+            <Pressable
+              style={styles.serverClear}
+              onPress={() => { setServerSearch(''); setSelectedServer(''); setServerDropdownOpen(false); }}
+            >
+              <Text style={styles.serverClearText}>✕</Text>
+            </Pressable>
+          )}
+          {serverDropdownOpen && filteredServers.length > 0 && (
+            <View style={styles.serverDropdown}>
+              {filteredServers.slice(0, 8).map(s => (
+                <Pressable
+                  key={s.serverId}
+                  style={[styles.serverItem, selectedServer === s.serverName && styles.serverItemActive]}
+                  onPress={() => {
+                    setSelectedServer(s.serverName ?? '');
+                    setServerSearch(s.serverName ?? '');
+                    setServerDropdownOpen(false);
+                    serverInputRef.current?.blur();
+                  }}
+                >
+                  <Text style={[styles.serverItemText, selectedServer === s.serverName && styles.serverItemTextActive]}>
+                    {s.serverName}
+                  </Text>
+                  {s.region && (
+                    <Text style={styles.serverItemSub}>{s.region}</Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
       {analysisState === 'idle' ? (
-        <Pressable style={styles.fileSelector} onPress={pickImage}>
-          <MaterialCommunityIcons name="lightning-bolt-outline" size={24} color="black" />
-          <Text style={{ fontWeight: 'bold' }}>Upload a screenshot to get started</Text>
-          <Text style={[headers.h4, { textAlign: 'center' }]}>
-            Our AI will analyze rankings, events, and players in your image
+        <Pressable
+          style={[styles.fileSelector, !selectedServer && styles.fileSelectorDisabled]}
+          onPress={() => {
+            if (!selectedServer) {
+              setError('Please select a server before uploading.');
+              return;
+            }
+            setError(null);
+            pickImage();
+          }}
+        >
+          <MaterialCommunityIcons
+            name="lightning-bolt-outline"
+            size={24}
+            color={selectedServer ? 'black' : '#bbb'}
+          />
+          <Text style={[{ fontWeight: 'bold' }, !selectedServer && styles.disabledText]}>
+            Upload a screenshot to get started
+          </Text>
+          <Text style={[headers.h4, { textAlign: 'center' }, !selectedServer && styles.disabledText]}>
+            {selectedServer
+              ? 'Our AI will analyze rankings, events, and players in your image'
+              : 'Select a server above first'}
           </Text>
         </Pressable>
       ) : (
@@ -147,7 +242,9 @@ export default function AnalysizesScreen() {
           <Text style={headers.h4}>
             Processed: {result.processedTime ? moment(result.processedTime).format('MMM D, YYYY HH:mm') : '—'}
           </Text>
-          {result.serverName && <Text style={headers.h4}>Server: {result.serverName}</Text>}
+          {(result.serverName || selectedServer) && (
+            <Text style={headers.h4}>Server: {result.serverName || selectedServer}</Text>
+          )}
           {result.eventName && <Text style={headers.h4}>Event: {result.eventName}</Text>}
 
           {/* Players extracted from analysis */}
@@ -193,6 +290,11 @@ const styles = StyleSheet.create({
     borderColor: styleVariables.borderColor,
     paddingHorizontal: 20,
   },
+  fileSelectorDisabled: {
+    backgroundColor: '#f9f9f9',
+    borderStyle: 'dashed',
+  },
+  disabledText: { color: '#bbb' },
   imageContainer: {
     width: '100%',
     height: 384,
@@ -281,4 +383,49 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   errorText: { color: '#EF4444' },
+  serverContainer: { position: 'relative', zIndex: 10 },
+  serverInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: styleVariables.borderColor,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    paddingRight: 40,
+  },
+  serverClear: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  serverClearText: { fontSize: 14, color: '#999' },
+  serverDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: styleVariables.borderColor,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 20,
+  },
+  serverItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  serverItemActive: { backgroundColor: '#f0f0ff' },
+  serverItemText: { fontSize: 14, color: '#333' },
+  serverItemTextActive: { color: styleVariables.mainColor, fontWeight: '600' },
+  serverItemSub: { fontSize: 12, color: '#999' },
 });

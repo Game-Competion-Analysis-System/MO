@@ -88,6 +88,23 @@ export interface LeaderboardEntry {
   player?: { playerId: number; playerName: string };
 }
 
+export interface ServerDto {
+  serverId: number;
+  serverName: string | null;
+  region: string | null;
+  status: string | null;
+  gameName: string | null;
+}
+
+// DTO returned by GET /api/leaderboard/top/{n}
+export interface LeaderboardEntryDto {
+  rank: number;
+  playerName: string | null;
+  score: number;
+  value: number; // alias for score
+  guildName: string | null;
+}
+
 export interface Leaderboard {
   leaderboardId: number;
   eventId: number | null;
@@ -234,6 +251,10 @@ export async function apiDelete<T>(path: string, auth = false): Promise<T> {
   if (auth) Object.assign(headers, await getAuthHeader());
   const res = await fetch(`${BASE_URL}${path}`, { method: "DELETE", headers });
   return handleResponse<T>(res);
+}
+
+export function apiGetPlayersByGame(gameId: number): Promise<PlayerDto[]> {
+  return apiGet<PlayerDto[]>(`/api/players/game/${gameId}`);
 }
 
 // Fetches all pages from a paginated endpoint and returns all items
