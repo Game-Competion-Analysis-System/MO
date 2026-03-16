@@ -5,7 +5,8 @@
       "Bash(ls -la '/c/Users/NGHIA/Project/MO/app/\\(tabs\\)/' 2>/dev/null)",
       "Bash(npx expo:*)",
       "Bash(find /c/Users/NGHIA/Project/MO/app /c/Users/NGHIA/Project/MO/services /c/Users/NGHIA/Project/MO/context -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | sort)",
-      "WebFetch(domain:swdaigame.onrender.com)"
+      "WebFetch(domain:swdaigame.onrender.com)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

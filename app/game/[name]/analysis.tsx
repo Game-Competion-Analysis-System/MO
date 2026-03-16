@@ -1,5 +1,5 @@
 import { container, headers, styleVariables } from "@/constants/styles";
-import { AnalysisSummary, User, apiGet } from "@/services/api";
+import { AnalysisSummary, User, apiGet, apiGetAllPaged } from "@/services/api";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useGlobalSearchParams } from "expo-router";
 import moment from "moment";
@@ -59,15 +59,24 @@ function LineChart({ data, color }: { data: ChartPoint[]; color: string }) {
   const yOf = (v: number) => PT + iH * (1 - v / maxV);
   const pts = data.map((d) => `${xOf(d.timestamp)},${yOf(d.value)}`).join(" ");
 
-  // One label per unique day, positioned at the earliest point of that day
-  const dayTicks: [string, number][] = [];
+  // One label per unique dayKey, capped at 5 evenly-spaced labels
+  const allTicks: [string, number][] = [];
   const seenDays = new Set<string>();
   for (const d of data) {
     if (!seenDays.has(d.dayKey)) {
       seenDays.add(d.dayKey);
-      dayTicks.push([d.dayKey, d.timestamp]);
+      allTicks.push([d.dayKey, d.timestamp]);
     }
   }
+  const maxTicks = 5;
+  const dayTicks: [string, number][] =
+    allTicks.length <= maxTicks
+      ? allTicks
+      : allTicks.filter((_, i) =>
+          i === 0 ||
+          i === allTicks.length - 1 ||
+          (i % Math.ceil(allTicks.length / (maxTicks - 1))) === 0,
+        ).slice(0, maxTicks);
 
   return (
     <View>
@@ -188,9 +197,8 @@ export default function AnalysisScreen() {
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  type TimeFilter = "all" | "28d" | "7d" | "24h";
+  type TimeFilter = "28d" | "7d" | "24h";
   const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
-    all: "All Time",
     "28d": "Last 28 Days",
     "7d": "Last 7 Days",
     "24h": "Last 24 Hours",
@@ -207,11 +215,11 @@ export default function AnalysisScreen() {
   async function load() {
     try {
       const [data, users] = await Promise.all([
-        apiGet<AnalysisSummary[]>("/api/ai", true),
+        apiGetAllPaged<AnalysisSummary>("/api/ai", true),
         apiGet<User[]>("/api/users", true).catch(() => [] as User[]),
       ]);
       const filtered = (data || [])
-        // .filter((a) => a.gameName === gameName)
+        .filter((a) => a.gameName === gameName)
         .sort(
           (a, b) =>
             moment(b.processedTime).valueOf() -
@@ -231,7 +239,6 @@ export default function AnalysisScreen() {
   }, [name]);
 
   const visibleAnalyses = useMemo(() => {
-    if (timeFilter === "all") return analyses;
     const hours = timeFilter === "24h" ? 24 : timeFilter === "7d" ? 168 : 672;
     const cutoff = moment().subtract(hours, "hours");
     return analyses.filter(
@@ -264,6 +271,10 @@ export default function AnalysisScreen() {
       (a, b) =>
         moment(a.processedTime).valueOf() - moment(b.processedTime).valueOf(),
     );
+    const xLabel = (t: string) =>
+      timeFilter === "24h"
+        ? moment(t).format("HH:mm")
+        : moment(t).format("D MMM");
     if (selectedPlayer) {
       return sorted
         .filter((a) =>
@@ -274,7 +285,7 @@ export default function AnalysisScreen() {
             (e) => e.playerName === selectedPlayer,
           )!;
           return {
-            dayKey: moment(a.processedTime).format("MMM D"),
+            dayKey: xLabel(a.processedTime!),
             exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
             value: entry.score,
             timestamp: moment(a.processedTime).valueOf(),
@@ -282,12 +293,12 @@ export default function AnalysisScreen() {
         });
     }
     return sorted.map((a) => ({
-      dayKey: moment(a.processedTime).format("MMM D"),
+      dayKey: xLabel(a.processedTime!),
       exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
       value: (a.leaderboard || []).length,
       timestamp: moment(a.processedTime).valueOf(),
     }));
-  }, [visibleAnalyses, selectedPlayer]);
+  }, [visibleAnalyses, selectedPlayer, timeFilter]);
 
   const thisMonth = analyses.filter((a) =>
     moment(a.processedTime).isSame(moment(), "month"),
@@ -339,7 +350,7 @@ export default function AnalysisScreen() {
             <Text style={[headers.h3, { marginBottom: 8 }]}>
               Filter by Period
             </Text>
-            {(["all", "28d", "7d", "24h"] as TimeFilter[]).map((f) => (
+            {(["28d", "7d", "24h"] as TimeFilter[]).map((f) => (
               <Pressable
                 key={f}
                 style={[
@@ -472,14 +483,8 @@ export default function AnalysisScreen() {
             {TIME_FILTER_LABELS[timeFilter]} Details
           </Text>
           <DetailRow
-            label={
-              timeFilter === "all"
-                ? "Analyses This Month"
-                : "Analyses in Period"
-            }
-            value={String(
-              timeFilter === "all" ? thisMonth.length : visibleAnalyses.length,
-            )}
+            label="Analyses in Period"
+            value={String(visibleAnalyses.length)}
             bg="#EFF6FF"
             border="#BFDBFE"
             textColor="#1D4ED8"

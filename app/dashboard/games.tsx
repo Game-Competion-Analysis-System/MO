@@ -1,6 +1,6 @@
 import GameTitleSections from '@/components/GameTitleSelections';
 import { container, headers, styleVariables } from '@/constants/styles';
-import { apiGet, Game } from '@/services/api';
+import { apiGetAllPaged, Game } from '@/services/api';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,7 +21,7 @@ export default function GamesTab() {
   async function loadGames() {
     try {
       setError(null);
-      const data = await apiGet<Game[]>('/api/games');
+      const data = await apiGetAllPaged<Game>('/api/games');
       setGames(data || []);
     } catch (e: any) {
       setError(e.message || 'Failed to load games');

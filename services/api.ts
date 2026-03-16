@@ -81,6 +81,16 @@ export interface Leaderboard {
   leaderboardEntries: LeaderboardEntry[];
 }
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
 // --- Helpers ---
 async function getAuthHeader(): Promise<Record<string, string>> {
   const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -181,4 +191,16 @@ export async function apiDelete<T>(path: string, auth = false): Promise<T> {
   if (auth) Object.assign(headers, await getAuthHeader());
   const res = await fetch(`${BASE_URL}${path}`, { method: "DELETE", headers });
   return handleResponse<T>(res);
+}
+
+// Fetches all pages from a paginated endpoint and returns all items
+export async function apiGetAllPaged<T>(path: string, auth = false): Promise<T[]> {
+  const sep = path.includes("?") ? "&" : "?";
+  const first = await apiGet<PagedResult<T>>(`${path}${sep}pageSize=100&pageNumber=1`, auth);
+  const result = [...first.items];
+  for (let page = 2; page <= first.totalPages; page++) {
+    const more = await apiGet<PagedResult<T>>(`${path}${sep}pageSize=100&pageNumber=${page}`, auth);
+    result.push(...more.items);
+  }
+  return result;
 }

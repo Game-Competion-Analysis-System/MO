@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { container, headers, styleVariables } from '@/constants/styles';
-import { apiGet, AiAnalysis } from '@/services/api';
+import { AnalysisSummary, apiGetAllPaged } from '@/services/api';
+import moment from 'moment';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,14 +14,14 @@ import {
 
 export default function DashboardHome() {
   const { user } = useAuth();
-  const [analyses, setAnalyses] = useState<AiAnalysis[]>([]);
+  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
     try {
-      const data = await apiGet<AiAnalysis[]>('/api/ai/history', true);
-      setAnalyses(data || []);
+      const data = await apiGetAllPaged<AnalysisSummary>('/api/ai', true);
+      setAnalyses((data || []).sort((a, b) => moment(b.processedTime).valueOf() - moment(a.processedTime).valueOf()));
     } catch {
       // silently fail
     } finally {
@@ -56,9 +57,11 @@ export default function DashboardHome() {
           ) : (
             analyses.slice(0, 5).map((a) => (
               <View key={a.analysisId} style={styles.card}>
-                <Text style={headers.h4}>Analysis #{a.analysisId}</Text>
-                <Text style={headers.h3}>{((a.confidenceScore ?? 0) * 100).toFixed(1)}% confidence</Text>
-                <Text style={headers.h4}>{a.aiExtractedFields?.length ?? 0} fields extracted</Text>
+                <Text style={headers.h4}>
+                  {a.gameName ?? 'Unknown Game'} — {a.serverName ? `Server: ${a.serverName}` : a.eventName ?? `#${a.analysisId}`}
+                </Text>
+                <Text style={headers.h3}>{moment(a.processedTime).format('MMM D, YYYY · HH:mm')}</Text>
+                <Text style={headers.h4}>{a.leaderboard?.length ?? 0} players</Text>
               </View>
             ))
           )}

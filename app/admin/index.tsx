@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { container, headers, styleVariables } from '@/constants/styles';
-import { apiGet, AiAnalysis, Game, User } from '@/services/api';
+import { AnalysisSummary, apiGetAllPaged, Game, User } from '@/services/api';
+import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -8,20 +9,20 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [games, setGames] = useState<Game[]>([]);
-  const [analyses, setAnalyses] = useState<AiAnalysis[]>([]);
+  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
     try {
       const [u, g, a] = await Promise.all([
-        apiGet<User[]>('/api/users', true),
-        apiGet<Game[]>('/api/games'),
-        apiGet<AiAnalysis[]>('/api/ai/history', true),
+        apiGetAllPaged<User>('/api/users', true),
+        apiGetAllPaged<Game>('/api/games'),
+        apiGetAllPaged<AnalysisSummary>('/api/ai', true),
       ]);
       setUsers(u || []);
       setGames(g || []);
-      setAnalyses(a || []);
+      setAnalyses((a || []).sort((x, y) => moment(y.processedTime).valueOf() - moment(x.processedTime).valueOf()));
     } catch {
       // silently fail individual stats
     } finally {
@@ -40,9 +41,7 @@ export default function AdminDashboard() {
     );
   }
 
-  const avgAccuracy = analyses.length
-    ? (analyses.reduce((s, a) => s + (a.confidenceScore || 0), 0) / analyses.length * 100).toFixed(1)
-    : '—';
+  const totalPlayers = analyses.reduce((s, a) => s + (a.leaderboard?.length ?? 0), 0);
 
   return (
     <ScrollView
@@ -58,15 +57,17 @@ export default function AdminDashboard() {
         <StatCard label="Total Users" value={String(users.length)} color="#9333EA" />
         <StatCard label="Total Games" value={String(games.length)} color="#22C55E" />
         <StatCard label="Total Analyses" value={String(analyses.length)} color="#2563EB" />
-        <StatCard label="Avg. Accuracy" value={analyses.length ? `${avgAccuracy}%` : '—'} color="#EA580C" />
+        <StatCard label="Players Detected" value={String(totalPlayers)} color="#EA580C" />
       </View>
 
       <Text style={headers.h2}>Recent Analyses</Text>
       {analyses.slice(0, 5).map((a) => (
         <View key={a.analysisId} style={styles.card}>
-          <Text style={headers.h4}>Analysis #{a.analysisId}</Text>
-          <Text style={headers.h3}>{((a.confidenceScore ?? 0) * 100).toFixed(1)}% confidence</Text>
-          <Text style={headers.h4}>{a.aiExtractedFields?.length ?? 0} fields extracted</Text>
+          <Text style={headers.h4}>
+            {a.gameName ?? 'Unknown Game'} — {a.serverName ? `Server: ${a.serverName}` : a.eventName ?? `#${a.analysisId}`}
+          </Text>
+          <Text style={headers.h3}>{moment(a.processedTime).format('MMM D, YYYY · HH:mm')}</Text>
+          <Text style={headers.h4}>{a.leaderboard?.length ?? 0} players</Text>
         </View>
       ))}
       {analyses.length === 0 && (

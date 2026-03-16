@@ -1,5 +1,5 @@
 import { container, headers, styleVariables } from '@/constants/styles';
-import { apiDelete, apiGet, User } from '@/services/api';
+import { apiDelete, apiGetAllPaged, User } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
@@ -25,7 +25,7 @@ export default function UsersScreen() {
 
   async function load() {
     try {
-      const data = await apiGet<User[]>('/api/users', true);
+      const data = await apiGetAllPaged<User>('/api/users', true);
       setUsers(data || []);
     } catch (e: any) {
       Alert.alert('Error', e.message);

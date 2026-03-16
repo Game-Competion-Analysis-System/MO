@@ -1,5 +1,5 @@
 import { container, headers, styleVariables } from "@/constants/styles";
-import { AnalysisSummary, apiDelete, apiGet } from "@/services/api";
+import { AnalysisSummary, apiDelete, apiGetAllPaged } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useGlobalSearchParams } from "expo-router";
@@ -32,9 +32,9 @@ export default function HistoryScreen() {
   async function load() {
     try {
       setError(null);
-      const data = await apiGet<AnalysisSummary[]>("/api/ai", true);
+      const data = await apiGetAllPaged<AnalysisSummary>("/api/ai", true);
       const filtered = (data || [])
-        // .filter(a => a.gameName === gameName)
+        .filter((a) => a.gameName === gameName)
         .sort(
           (a, b) =>
             moment(b.processedTime).valueOf() -
