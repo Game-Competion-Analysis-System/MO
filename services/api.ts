@@ -4,6 +4,12 @@ export const BASE_URL = "https://swdaigame.onrender.com";
 export const TOKEN_KEY = "auth_token";
 export const USER_KEY = "auth_user";
 
+// Registered by AuthContext to clear auth state when a 401 is received
+let _onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorizedHandler(fn: () => void) {
+  _onUnauthorized = fn;
+}
+
 // --- Types ---
 export interface User {
   userId: number;
@@ -133,6 +139,9 @@ async function getAuthHeader(): Promise<Record<string, string>> {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    if (res.status === 401) {
+      _onUnauthorized?.();
+    }
     const text = await res.text();
     let message = text || `HTTP ${res.status}`;
     try {

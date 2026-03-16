@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,18 +19,20 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+      setError("Please fill in all fields");
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       await login(email.trim(), password);
       // _layout.tsx auth guard redirects to /admin or /games after user state updates
     } catch (e: any) {
-      Alert.alert("Login Failed", e.message || "Invalid credentials");
+      setError(e.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }
@@ -63,6 +64,8 @@ export default function LoginScreen() {
           value={password}
           onChangeText={setPassword}
         />
+
+        {error && <Text style={styles.errorText}>{error}</Text>}
 
         <Pressable
           style={styles.button}
@@ -118,6 +121,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 16,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 14,
+    textAlign: "center",
   },
   button: {
     backgroundColor: styleVariables.mainColor,

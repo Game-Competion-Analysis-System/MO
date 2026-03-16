@@ -1,8 +1,7 @@
-import { files } from "@/constants/files";
 import { headers, styleVariables } from "@/constants/styles";
 import { Game } from "@/services/api";
 import { useRouter } from "expo-router";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 function GameTitleSection({
   game,
@@ -14,10 +13,6 @@ function GameTitleSection({
   return (
     <Pressable onPress={onPress}>
       <View style={styles.gameTitleContainer}>
-        <Image
-          source={files.placeHolderImageGameThumbnail}
-          style={{ width: "100%", height: 208 }}
-        />
         <View style={styles.gameInfo}>
           <Text style={headers.h2}>{game.gameName}</Text>
           <View style={styles.badge}>
@@ -54,9 +49,8 @@ const styles = StyleSheet.create({
     borderColor: styleVariables.borderColor,
   },
   gameInfo: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    gap: 4,
+    padding: 16,
+    gap: 6,
   },
   badge: {
     alignSelf: "flex-start",

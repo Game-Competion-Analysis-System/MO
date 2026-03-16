@@ -1,6 +1,16 @@
-import { BASE_URL, TOKEN_KEY, USER_KEY, User } from "@/services/api";
+import { BASE_URL, TOKEN_KEY, USER_KEY, User, setOnUnauthorizedHandler } from "@/services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useContext, useEffect, useState } from "react";
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payloadB64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(payloadB64));
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true; // Treat unparseable tokens as expired
+  }
+}
 
 interface AuthContextValue {
   user: User | null;
@@ -22,14 +32,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Register 401 handler so any expired-token API response clears auth state
+  useEffect(() => {
+    setOnUnauthorizedHandler(() => {
+      AsyncStorage.removeItem(TOKEN_KEY);
+      AsyncStorage.removeItem(USER_KEY);
+      setToken(null);
+      setUser(null);
+    });
+  }, []);
+
+  // Restore persisted session, but only if the token hasn't expired
   useEffect(() => {
     (async () => {
       try {
         const savedToken = await AsyncStorage.getItem(TOKEN_KEY);
         const savedUser = await AsyncStorage.getItem(USER_KEY);
-        if (savedToken && savedUser) {
+        if (savedToken && savedUser && !isTokenExpired(savedToken)) {
           setToken(savedToken);
           setUser(JSON.parse(savedUser));
+        } else if (savedToken || savedUser) {
+          // Clear stale / expired data so the user lands on the login screen
+          await AsyncStorage.removeItem(TOKEN_KEY);
+          await AsyncStorage.removeItem(USER_KEY);
         }
       } finally {
         setIsLoading(false);
