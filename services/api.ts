@@ -63,6 +63,16 @@ export interface LeaderboardPlayer {
   guildName: string | null;
 }
 
+export interface PlayerDto {
+  playerId: number;
+  playerName: string | null;
+  guildName: string | null;
+  latestScore: number;
+  latestRank: number;
+  gameName: string | null;
+  serverName: string | null;
+}
+
 export interface LeaderboardEntry {
   entryId: number;
   leaderboardId: number;
@@ -79,6 +89,30 @@ export interface Leaderboard {
   metricType: string | null;
   createdFromAnalysisId: number | null;
   leaderboardEntries: LeaderboardEntry[];
+}
+
+// Raw entity shapes returned by /api/leaderboard endpoints (lowercase field names from EF entities)
+export interface LeaderboardEntryRaw {
+  entryid: number;
+  leaderboardid: number | null;
+  playerid: number | null;
+  rank: number | null;
+  value: number | null;
+  player?: {
+    playerid: number;
+    playername: string | null;
+    guild?: { guildname: string | null } | null;
+    server?: { servername: string | null } | null;
+  } | null;
+}
+
+export interface LeaderboardRaw {
+  leaderboardid: number;
+  eventid: number | null;
+  title: string | null;
+  metrictype: string | null;
+  createdfromanalysisid: number | null;
+  leaderboardentries: LeaderboardEntryRaw[];
 }
 
 export interface PagedResult<T> {

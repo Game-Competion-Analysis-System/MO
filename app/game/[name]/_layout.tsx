@@ -73,6 +73,15 @@ export default function GameTabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="players"
+        options={{
+          title: "Players",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
