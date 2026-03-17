@@ -1,7 +1,6 @@
 import { container, headers, styleVariables } from "@/constants/styles";
-import { apiGet, apiGetAllPaged, Game, PagedResult, PlayerDto } from "@/services/api";
+import { apiGet, PagedResult, PlayerDto } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import { useGlobalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,9 +16,6 @@ import {
 const PAGE_SIZE = 20;
 
 export default function PlayersScreen() {
-  const { name } = useGlobalSearchParams<{ name: string }>();
-  const gameName = decodeURIComponent(name ?? "");
-
   const [players, setPlayers] = useState<PlayerDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,28 +25,16 @@ export default function PlayersScreen() {
   const [searchResults, setSearchResults] = useState<PlayerDto[] | null>(null);
   const [searching, setSearching] = useState(false);
 
-  // For paginated browse mode
   const nextPage = useRef(1);
   const hasMore = useRef(true);
   const fetching = useRef(false);
-  const gameId = useRef<number | null>(null);
-
-  async function resolveGameId(): Promise<number | null> {
-    if (gameId.current !== null) return gameId.current;
-    const games = await apiGetAllPaged<Game>("/api/games");
-    const match = games.find((g) => g.gameName === gameName);
-    gameId.current = match?.gameId ?? null;
-    return gameId.current;
-  }
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function fetchPage(page: number): Promise<{ items: PlayerDto[]; hasNext: boolean }> {
-    const id = await resolveGameId();
-    if (id === null) return { items: [], hasNext: false };
     const res = await apiGet<PagedResult<PlayerDto>>(
       `/api/players?pageSize=${PAGE_SIZE}&pageNumber=${page}&isDescending=true`,
     );
-    const items = (res.items || []).filter((p) => p.gameName === gameName);
-    return { items, hasNext: res.hasNext };
+    return { items: res.items || [], hasNext: res.hasNext };
   }
 
   async function loadInitial() {
@@ -90,30 +74,19 @@ export default function PlayersScreen() {
     }
   }
 
-  useEffect(() => {
-    setLoading(true);
-    loadInitial();
-  }, [name]);
-
-  // Debounced search
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { loadInitial(); }, []);
 
   function handleSearchChange(text: string) {
     setSearch(text);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (!text.trim()) {
-      setSearchResults(null);
-      return;
-    }
+    if (!text.trim()) { setSearchResults(null); return; }
     searchTimeout.current = setTimeout(async () => {
       setSearching(true);
       try {
         const results = await apiGet<PlayerDto[]>(
           `/api/players/search?name=${encodeURIComponent(text.trim())}`,
         );
-        setSearchResults(
-          (results || []).filter((p) => p.gameName === gameName),
-        );
+        setSearchResults(results || []);
       } catch {
         setSearchResults([]);
       } finally {
@@ -142,6 +115,12 @@ export default function PlayersScreen() {
           {item.playerName ?? "Unknown"}
         </Text>
         <View style={styles.metaRow}>
+          {item.gameName && (
+            <View style={styles.tag}>
+              <Ionicons name="game-controller-outline" size={11} color={styleVariables.unHighlightTextColor} />
+              <Text style={styles.tagText}>{item.gameName}</Text>
+            </View>
+          )}
           {item.guildName && (
             <View style={styles.tag}>
               <Ionicons name="shield-outline" size={11} color={styleVariables.unHighlightTextColor} />
@@ -184,11 +163,7 @@ export default function PlayersScreen() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            clearSearch();
-            loadInitial();
-          }}
+          onRefresh={() => { setRefreshing(true); clearSearch(); loadInitial(); }}
         />
       }
       onEndReached={loadMore}
@@ -206,7 +181,6 @@ export default function PlayersScreen() {
             </View>
           </View>
 
-          {/* Search bar */}
           <View style={styles.searchBox}>
             <Ionicons name="search" size={16} color="#aaa" style={{ marginLeft: 10 }} />
             <TextInput
@@ -239,7 +213,7 @@ export default function PlayersScreen() {
         ) : (
           <View style={styles.centered}>
             <Text style={headers.h4}>
-              {search.trim() ? "No players found." : "No players for this game yet."}
+              {search.trim() ? "No players found." : "No players yet."}
             </Text>
           </View>
         )

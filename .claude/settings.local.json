@@ -7,7 +7,9 @@
       "Bash(find /c/Users/NGHIA/Project/MO/app /c/Users/NGHIA/Project/MO/services /c/Users/NGHIA/Project/MO/context -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | sort)",
       "WebFetch(domain:swdaigame.onrender.com)",
       "mcp__ide__getDiagnostics",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)"
     ]
   }
 }

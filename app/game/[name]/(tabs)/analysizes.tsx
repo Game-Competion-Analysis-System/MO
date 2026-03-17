@@ -1,14 +1,15 @@
 import { container, headers, styleVariables } from '@/constants/styles';
+import { useAuth } from '@/context/AuthContext';
 import { AnalysisSummary, apiGet, apiGetAllPaged, apiPostForm, Game, LeaderboardPlayer, PagedResult, ServerDto } from '@/services/api';
 import { sendRankChangeNotification } from '@/services/notifications';
 import { detectRankChanges } from '@/services/rankTracker';
+import { Ionicons } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'expo-image-picker';
-import { useGlobalSearchParams } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -24,6 +25,8 @@ type AnalysisState = 'idle' | 'loading' | 'complete';
 export default function AnalysizesScreen() {
   const { name } = useGlobalSearchParams<{ name: string }>();
   const gameName = decodeURIComponent(name ?? '');
+  const { user } = useAuth();
+  const router = useRouter();
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisSummary | null>(null);
@@ -127,7 +130,18 @@ export default function AnalysizesScreen() {
 
   return (
     <ScrollView contentContainerStyle={[container.padding, container.gap]}>
-      <Text style={headers.h1}>Upload Screenshot</Text>
+      <View style={styles.titleRow}>
+        <Text style={headers.h1}>Upload Screenshot</Text>
+        {user?.role === 'admin' && (
+          <Pressable
+            style={styles.airtestBtn}
+            onPress={() => router.push(`../airtest` as any)}
+          >
+            <Ionicons name="hardware-chip-outline" size={16} color="#fff" />
+            <Text style={styles.airtestBtnText}>Airtest</Text>
+          </Pressable>
+        )}
+      </View>
 
       {error && (
         <View style={styles.errorBox}>
@@ -383,6 +397,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   errorText: { color: '#EF4444' },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  airtestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  airtestBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   serverContainer: { position: 'relative', zIndex: 10 },
   serverInput: {
     borderWidth: StyleSheet.hairlineWidth,

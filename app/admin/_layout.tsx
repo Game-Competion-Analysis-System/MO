@@ -73,6 +73,15 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="players"
+        options={{
+          title: "Players",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="leaderboard"
         options={{
           title: "Leaderboard",
