@@ -33,7 +33,7 @@ export default function GameTitleSections({ items }: { items: Game[] }) {
         <GameTitleSection
           key={String(item.gameId)}
           game={item}
-          onPress={() => router.push(`/game/${encodeURIComponent(item.gameName)}` as any)}
+          onPress={() => router.push(`/dashboard/game/${encodeURIComponent(item.gameName)}` as any)}
         />
       ))}
     </View>

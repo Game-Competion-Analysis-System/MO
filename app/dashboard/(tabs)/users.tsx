@@ -1,6 +1,8 @@
 import { container, headers, styleVariables } from '@/constants/styles';
+import { useAuth } from '@/context/AuthContext';
 import { apiDelete, apiGetAllPaged, User } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +18,16 @@ import {
 } from 'react-native';
 
 export default function UsersScreen() {
+  const { user } = useAuth();
+
+  if (user?.role !== 'admin') {
+    return <Redirect href="/dashboard" />;
+  }
+
+  return <UsersContent />;
+}
+
+function UsersContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -115,7 +127,6 @@ export default function UsersScreen() {
         {users.length === 0 && <Text style={headers.h4}>No users found.</Text>}
       </ScrollView>
 
-      {/* User Profile Modal */}
       <Modal
         visible={selectedUser !== null}
         animationType="slide"
@@ -124,7 +135,6 @@ export default function UsersScreen() {
       >
         {selectedUser && (
           <View style={styles.modal}>
-            {/* Modal header */}
             <View style={styles.modalHeader}>
               <Text style={headers.h2}>User Profile</Text>
               <Pressable onPress={closeModal}>
@@ -132,7 +142,6 @@ export default function UsersScreen() {
               </Pressable>
             </View>
 
-            {/* Avatar + name */}
             <View style={styles.profileAvatar}>
               <View style={[
                 styles.avatarLarge,
@@ -150,7 +159,6 @@ export default function UsersScreen() {
               </View>
             </View>
 
-            {/* Detail rows */}
             <View style={styles.detailsSection}>
               <ProfileRow icon="person-outline" label="Username" value={selectedUser.username} />
               <ProfileRow icon="mail-outline" label="Email" value={selectedUser.email} />
@@ -162,7 +170,6 @@ export default function UsersScreen() {
               />
             </View>
 
-            {/* Delete section */}
             {!confirmingDelete ? (
               <Pressable
                 style={styles.deleteBtn}
@@ -262,8 +269,6 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: 'bold' },
   badgeAdminText: { color: '#065F46' },
   badgeUserText: { color: '#4C1D95' },
-
-  // Modal
   modal: {
     flex: 1,
     backgroundColor: '#fff',
@@ -315,8 +320,6 @@ const styles = StyleSheet.create({
   },
   profileRowLabel: { fontSize: 12, color: styleVariables.unHighlightTextColor },
   profileRowValue: { fontSize: 15, fontWeight: '600', marginTop: 1 },
-
-  // Delete
   deleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -330,8 +333,6 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   deleteBtnText: { color: '#EF4444', fontWeight: 'bold', fontSize: 16 },
-
-  // Inline confirmation
   confirmBox: {
     borderRadius: 12,
     borderWidth: 1,

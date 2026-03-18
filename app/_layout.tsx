@@ -32,7 +32,7 @@ function RootLayoutInner() {
       router.replace('/');
       unregisterBackgroundSync().catch(() => {});
     } else if (user && inAuthScreen) {
-      router.replace(user.role === 'admin' ? '/admin' : '/dashboard');
+      router.replace('/dashboard');
       requestNotificationPermissions().then((granted) => {
         if (granted) registerBackgroundSync().catch(() => {});
       });
@@ -73,8 +73,6 @@ function RootLayoutInner() {
       {/* App screens — use shared header above */}
       <Stack.Screen name="dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: 'My Profile' }} />
-      <Stack.Screen name="game/[name]" options={{ headerShown: false }} />
-      <Stack.Screen name="admin" options={{ headerShown: false }} />
     </Stack>
   );
 }

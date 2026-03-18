@@ -5,8 +5,10 @@ import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-export default function AdminDashboard() {
+export default function HomeScreen() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [users, setUsers] = useState<User[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
@@ -15,16 +17,21 @@ export default function AdminDashboard() {
 
   async function load() {
     try {
-      const [u, g, a] = await Promise.all([
-        apiGetAllPaged<User>('/api/users', true),
-        apiGetAllPaged<Game>('/api/games'),
-        apiGetAllPaged<AnalysisSummary>('/api/ai', true),
-      ]);
-      setUsers(u || []);
-      setGames(g || []);
-      setAnalyses((a || []).sort((x, y) => moment(y.processedTime).valueOf() - moment(x.processedTime).valueOf()));
+      if (isAdmin) {
+        const [u, g, a] = await Promise.all([
+          apiGetAllPaged<User>('/api/users', true),
+          apiGetAllPaged<Game>('/api/games'),
+          apiGetAllPaged<AnalysisSummary>('/api/ai', true),
+        ]);
+        setUsers(u || []);
+        setGames(g || []);
+        setAnalyses((a || []).sort((x, y) => moment(y.processedTime).valueOf() - moment(x.processedTime).valueOf()));
+      } else {
+        const data = await apiGetAllPaged<AnalysisSummary>('/api/ai', true);
+        setAnalyses((data || []).sort((a, b) => moment(b.processedTime).valueOf() - moment(a.processedTime).valueOf()));
+      }
     } catch {
-      // silently fail individual stats
+      // silently fail
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,29 +56,39 @@ export default function AdminDashboard() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
     >
       <View>
-        <Text style={headers.h1}>Admin Dashboard</Text>
-        <Text style={[headers.h4, { marginBottom: 4 }]}>Welcome, {user?.username}</Text>
+        <Text style={headers.h1}>{isAdmin ? 'Admin Dashboard' : `Welcome, ${user?.username}`}</Text>
+        {isAdmin && <Text style={[headers.h4, { marginBottom: 4 }]}>Welcome, {user?.username}</Text>}
+        {!isAdmin && (
+          <Text style={[headers.h4, { color: styleVariables.unHighlightTextColor }]}>
+            Select the Games tab to pick a game to analyze.
+          </Text>
+        )}
       </View>
 
-      <View style={styles.statsGrid}>
-        <StatCard label="Total Users" value={String(users.length)} color="#9333EA" />
-        <StatCard label="Total Games" value={String(games.length)} color="#22C55E" />
-        <StatCard label="Total Analyses" value={String(analyses.length)} color="#2563EB" />
-        <StatCard label="Players Detected" value={String(totalPlayers)} color="#EA580C" />
-      </View>
+      {isAdmin && (
+        <View style={styles.statsGrid}>
+          <StatCard label="Total Users" value={String(users.length)} color="#9333EA" />
+          <StatCard label="Total Games" value={String(games.length)} color="#22C55E" />
+          <StatCard label="Total Analyses" value={String(analyses.length)} color="#2563EB" />
+          <StatCard label="Players Detected" value={String(totalPlayers)} color="#EA580C" />
+        </View>
+      )}
 
       <Text style={headers.h2}>Recent Analyses</Text>
-      {analyses.slice(0, 5).map((a) => (
-        <View key={a.analysisId} style={styles.card}>
-          <Text style={headers.h4}>
-            {a.gameName ?? 'Unknown Game'} — {a.serverName ? `Server: ${a.serverName}` : a.eventName ?? `#${a.analysisId}`}
-          </Text>
-          <Text style={headers.h3}>{moment(a.processedTime).format('MMM D, YYYY · HH:mm')}</Text>
-          <Text style={headers.h4}>{a.leaderboard?.length ?? 0} players</Text>
-        </View>
-      ))}
-      {analyses.length === 0 && (
-        <Text style={headers.h4}>No analyses yet.</Text>
+      {analyses.length === 0 ? (
+        <Text style={headers.h4}>
+          {isAdmin ? 'No analyses yet.' : 'No analyses yet. Pick a game to get started!'}
+        </Text>
+      ) : (
+        analyses.slice(0, 5).map((a) => (
+          <View key={a.analysisId} style={styles.card}>
+            <Text style={headers.h4}>
+              {a.gameName ?? 'Unknown Game'} — {a.serverName ? `Server: ${a.serverName}` : a.eventName ?? `#${a.analysisId}`}
+            </Text>
+            <Text style={headers.h3}>{moment(a.processedTime).format('MMM D, YYYY · HH:mm')}</Text>
+            <Text style={headers.h4}>{a.leaderboard?.length ?? 0} players</Text>
+          </View>
+        ))
       )}
     </ScrollView>
   );

@@ -15,12 +15,12 @@ function HeaderTitle() {
   );
 }
 
-export default function AdminLayout() {
+export default function AppTabsLayout() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  if (!user || user.role !== "admin") {
-    return <Redirect href="/dashboard" />;
+  if (!user) {
+    return <Redirect href="/" />;
   }
 
   return (
@@ -48,9 +48,9 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid" size={size} color={color} />
+            <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
@@ -60,15 +60,6 @@ export default function AdminLayout() {
           title: "Games",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="game-controller" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="users"
-        options={{
-          title: "Users",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
           ),
         }}
       />
@@ -87,6 +78,16 @@ export default function AdminLayout() {
           title: "Leaderboard",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trophy" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="users"
+        options={{
+          href: user.role !== "admin" ? null : undefined,
+          title: "Users",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="shield-half" size={size} color={color} />
           ),
         }}
       />

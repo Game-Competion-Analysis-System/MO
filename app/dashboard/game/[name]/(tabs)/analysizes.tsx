@@ -1,5 +1,4 @@
 import { container, headers, styleVariables } from '@/constants/styles';
-import { useAuth } from '@/context/AuthContext';
 import { AnalysisSummary, apiGet, apiGetAllPaged, apiPostForm, Game, LeaderboardPlayer, PagedResult, ServerDto } from '@/services/api';
 import { sendRankChangeNotification } from '@/services/notifications';
 import { detectRankChanges } from '@/services/rankTracker';
@@ -25,7 +24,6 @@ type AnalysisState = 'idle' | 'loading' | 'complete';
 export default function AnalysizesScreen() {
   const { name } = useGlobalSearchParams<{ name: string }>();
   const gameName = decodeURIComponent(name ?? '');
-  const { user } = useAuth();
   const router = useRouter();
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -132,15 +130,13 @@ export default function AnalysizesScreen() {
     <ScrollView contentContainerStyle={[container.padding, container.gap]}>
       <View style={styles.titleRow}>
         <Text style={headers.h1}>Upload Screenshot</Text>
-        {user?.role === 'admin' && (
-          <Pressable
-            style={styles.airtestBtn}
-            onPress={() => router.push(`../airtest` as any)}
-          >
-            <Ionicons name="hardware-chip-outline" size={16} color="#fff" />
-            <Text style={styles.airtestBtnText}>Airtest</Text>
-          </Pressable>
-        )}
+        <Pressable
+          style={styles.airtestBtn}
+          onPress={() => router.push(`../airtest` as any)}
+        >
+          <Ionicons name="hardware-chip-outline" size={16} color="#fff" />
+          <Text style={styles.airtestBtnText}>Airtest</Text>
+        </Pressable>
       </View>
 
       {error && (
