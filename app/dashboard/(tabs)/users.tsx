@@ -7,12 +7,15 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -28,12 +31,14 @@ export default function UsersScreen() {
 }
 
 function UsersContent() {
+  const { register } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
 
   async function load() {
     try {
@@ -93,7 +98,12 @@ function UsersContent() {
           />
         }
       >
-        <Text style={headers.h1}>Users ({users.length})</Text>
+        <View style={styles.listHeader}>
+          <Text style={headers.h1}>Users ({users.length})</Text>
+          <Pressable style={styles.createBtn} onPress={() => setCreateModalVisible(true)}>
+            <Ionicons name="add" size={22} color="#fff" />
+          </Pressable>
+        </View>
 
         {users.map((u) => (
           <TouchableOpacity
@@ -210,6 +220,13 @@ function UsersContent() {
           </View>
         )}
       </Modal>
+
+      <CreateUserModal
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+        onSuccess={() => { setCreateModalVisible(false); load(); }}
+        register={register}
+      />
     </>
   );
 }
@@ -233,6 +250,131 @@ function ProfileRow({
         <Text style={styles.profileRowValue}>{value ?? '—'}</Text>
       </View>
     </View>
+  );
+}
+
+function CreateUserModal({
+  visible,
+  onClose,
+  onSuccess,
+  register,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  register: (username: string, email: string, password: string) => Promise<void>;
+}) {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setUsername('');
+    setEmail('');
+    setPassword('');
+    setError(null);
+    setSubmitting(false);
+  }
+
+  function handleClose() {
+    reset();
+    onClose();
+  }
+
+  async function handleSubmit() {
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      setError('All fields are required.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await register(username.trim(), email.trim(), password);
+      reset();
+      onSuccess();
+    } catch (e: any) {
+      setError(e.message || 'Failed to create user.');
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.modal}>
+          <View style={styles.modalHeader}>
+            <Text style={headers.h2}>Create User</Text>
+            <Pressable onPress={handleClose}>
+              <Ionicons name="close" size={26} color="#000" />
+            </Pressable>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>Username</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Enter username"
+              placeholderTextColor="#aaa"
+              autoCapitalize="none"
+              value={username}
+              onChangeText={setUsername}
+              editable={!submitting}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>Email</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Enter email address"
+              placeholderTextColor="#aaa"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              editable={!submitting}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>Password</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Enter password"
+              placeholderTextColor="#aaa"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              editable={!submitting}
+            />
+          </View>
+
+          {error && <Text style={styles.inlineError}>{error}</Text>}
+
+          <Pressable
+            style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.submitBtnText}>Create User</Text>
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -361,4 +503,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   confirmDeleteBtnText: { fontWeight: 'bold', color: '#fff' },
+
+  // Create user
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  createBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: styleVariables.mainColor,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  formGroup: { gap: 6 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#444' },
+  fieldInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: styleVariables.borderColor,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    backgroundColor: '#fafafa',
+  },
+  inlineError: { color: '#EF4444', fontSize: 13 },
+  submitBtn: {
+    backgroundColor: styleVariables.mainColor,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });
