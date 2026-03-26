@@ -192,6 +192,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 120,
     justifyContent: 'center',
+    shadowColor: '#7E6B67',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   preview: {
     width: '100%',
@@ -243,6 +248,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     backgroundColor: '#ded5d37f',
+    shadowColor: '#7E6B67',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   rankCircle: {
     width: 40,

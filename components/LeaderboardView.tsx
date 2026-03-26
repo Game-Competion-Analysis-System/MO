@@ -1,5 +1,5 @@
-import { useAuth } from "@/context/AuthContext";
 import { container, headers, styleVariables } from "@/constants/styles";
+import { useAuth } from "@/context/AuthContext";
 import {
   apiDelete,
   apiGet,
@@ -23,17 +23,45 @@ import {
 
 const PAGE_SIZE = 15;
 
-function RankCircle({ rank, size = 36 }: { rank: number | null; size?: number }) {
+function RankCircle({
+  rank,
+  size = 36,
+}: {
+  rank: number | null;
+  size?: number;
+}) {
   const bg =
-    rank === 1 ? "#F59E0B" : rank === 2 ? "#6B7280" : rank === 3 ? "#92400E" : styleVariables.mainColor;
+    rank === 1
+      ? "#F59E0B"
+      : rank === 2
+        ? "#6B7280"
+        : rank === 3
+          ? "#92400E"
+          : styleVariables.mainColor;
   return (
-    <View style={[styles.rankCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
+    <View
+      style={[
+        styles.rankCircle,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: bg,
+        },
+      ]}
+    >
       <Text style={styles.rankText}>{rank != null ? `#${rank}` : "—"}</Text>
     </View>
   );
 }
 
-function EntryRow({ entry, index }: { entry: LeaderboardEntryRaw; index: number }) {
+function EntryRow({
+  entry,
+  index,
+}: {
+  entry: LeaderboardEntryRaw;
+  index: number;
+}) {
   return (
     <View style={[styles.entryRow, index % 2 === 1 && styles.entryRowAlt]}>
       <RankCircle rank={entry.rank} />
@@ -44,26 +72,44 @@ function EntryRow({ entry, index }: { entry: LeaderboardEntryRaw; index: number 
         <View style={styles.metaRow}>
           {entry.player?.guild?.guildname && (
             <View style={styles.tag}>
-              <Ionicons name="shield-outline" size={11} color={styleVariables.unHighlightTextColor} />
+              <Ionicons
+                name="shield-outline"
+                size={11}
+                color={styleVariables.unHighlightTextColor}
+              />
               <Text style={styles.tagText}>{entry.player.guild.guildname}</Text>
             </View>
           )}
           {entry.player?.server?.servername && (
             <View style={styles.tag}>
-              <Ionicons name="server-outline" size={11} color={styleVariables.unHighlightTextColor} />
-              <Text style={styles.tagText}>{entry.player.server.servername}</Text>
+              <Ionicons
+                name="server-outline"
+                size={11}
+                color={styleVariables.unHighlightTextColor}
+              />
+              <Text style={styles.tagText}>
+                {entry.player.server.servername}
+              </Text>
             </View>
           )}
         </View>
       </View>
       <Text style={[headers.h3, { color: styleVariables.mainColor }]}>
-        {entry.value != null && entry.value > 0 ? entry.value.toLocaleString() : "—"}
+        {entry.value != null && entry.value > 0
+          ? entry.value.toLocaleString()
+          : "—"}
       </Text>
     </View>
   );
 }
 
-function TopEntryRow({ entry, index }: { entry: LeaderboardEntryDto; index: number }) {
+function TopEntryRow({
+  entry,
+  index,
+}: {
+  entry: LeaderboardEntryDto;
+  index: number;
+}) {
   return (
     <View style={[styles.entryRow, index % 2 === 1 && styles.entryRowAlt]}>
       <RankCircle rank={entry.rank} />
@@ -74,7 +120,11 @@ function TopEntryRow({ entry, index }: { entry: LeaderboardEntryDto; index: numb
         {entry.guildName && (
           <View style={styles.metaRow}>
             <View style={styles.tag}>
-              <Ionicons name="shield-outline" size={11} color={styleVariables.unHighlightTextColor} />
+              <Ionicons
+                name="shield-outline"
+                size={11}
+                color={styleVariables.unHighlightTextColor}
+              />
               <Text style={styles.tagText}>{entry.guildName}</Text>
             </View>
           </View>
@@ -103,16 +153,24 @@ function LeaderboardCard({
   const [deleting, setDeleting] = useState(false);
 
   async function toggle() {
-    if (expanded) { setExpanded(false); return; }
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
     // Already loaded
-    if (detail !== null) { setExpanded(true); return; }
+    if (detail !== null) {
+      setExpanded(true);
+      return;
+    }
 
     setLoadingEntries(true);
     try {
       // Fetch full detail and sorted entries in parallel
       const [fullDetail, sorted] = await Promise.all([
         apiGet<LeaderboardRaw>(`/api/leaderboard/${lb.leaderboardid}`),
-        apiGet<LeaderboardEntryRaw[]>(`/api/leaderboard/${lb.leaderboardid}/sorted`),
+        apiGet<LeaderboardEntryRaw[]>(
+          `/api/leaderboard/${lb.leaderboardid}/sorted`,
+        ),
       ]);
       setDetail(fullDetail);
       setSortedEntries(sorted || []);
@@ -147,7 +205,8 @@ function LeaderboardCard({
 
   // Prefer detail data for header info, fall back to list data
   const displayLb = detail ?? lb;
-  const entryCount = sortedEntries.length || displayLb.leaderboardentries?.length || 0;
+  const entryCount =
+    sortedEntries.length || displayLb.leaderboardentries?.length || 0;
 
   return (
     <View style={styles.card}>
@@ -173,16 +232,22 @@ function LeaderboardCard({
             )}
             {displayLb.createdfromanalysisid && (
               <View style={styles.tag}>
-                <Ionicons name="analytics-outline" size={11} color={styleVariables.unHighlightTextColor} />
-                <Text style={styles.tagText}>Analysis #{displayLb.createdfromanalysisid}</Text>
+                <Ionicons
+                  name="analytics-outline"
+                  size={11}
+                  color={styleVariables.unHighlightTextColor}
+                />
+                <Text style={styles.tagText}>
+                  Analysis #{displayLb.createdfromanalysisid}
+                </Text>
               </View>
             )}
           </View>
         </View>
 
         <View style={styles.cardActions}>
-          {isAdmin && (
-            deleting ? (
+          {isAdmin &&
+            (deleting ? (
               <ActivityIndicator size="small" color="#EF4444" />
             ) : (
               <Pressable
@@ -192,8 +257,7 @@ function LeaderboardCard({
               >
                 <Ionicons name="trash-outline" size={18} color="#EF4444" />
               </Pressable>
-            )
-          )}
+            ))}
           {loadingEntries ? (
             <ActivityIndicator size="small" color={styleVariables.mainColor} />
           ) : (
@@ -211,7 +275,9 @@ function LeaderboardCard({
           {sortedEntries.length === 0 ? (
             <Text style={[headers.h4, { padding: 12 }]}>No entries.</Text>
           ) : (
-            sortedEntries.map((e, i) => <EntryRow key={e.entryid} entry={e} index={i} />)
+            sortedEntries.map((e, i) => (
+              <EntryRow key={i} entry={e} index={i} />
+            ))
           )}
         </View>
       )}
@@ -283,7 +349,9 @@ export default function LeaderboardView() {
     setLeaderboards((prev) => prev.filter((lb) => lb.leaderboardid !== id));
   }
 
-  useEffect(() => { loadInitial(); }, []);
+  useEffect(() => {
+    loadInitial();
+  }, []);
 
   if (loading) {
     return (
@@ -296,15 +364,22 @@ export default function LeaderboardView() {
   return (
     <FlatList
       data={leaderboards}
-      keyExtractor={(item) => String(item.leaderboardid)}
+      keyExtractor={(_, i) => String(i)}
       renderItem={({ item }) => (
-        <LeaderboardCard lb={item} isAdmin={isAdmin} onDeleted={handleDeleted} />
+        <LeaderboardCard
+          lb={item}
+          isAdmin={isAdmin}
+          onDeleted={handleDeleted}
+        />
       )}
       contentContainerStyle={[container.padding, container.gap]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); loadInitial(); }}
+          onRefresh={() => {
+            setRefreshing(true);
+            loadInitial();
+          }}
         />
       }
       onEndReached={loadMore}
@@ -312,7 +387,9 @@ export default function LeaderboardView() {
       ListHeaderComponent={
         <View style={{ gap: 10 }}>
           <Text style={headers.h1}>Leaderboard</Text>
-          <Text style={[headers.h4, { color: styleVariables.unHighlightTextColor }]}>
+          <Text
+            style={[headers.h4, { color: styleVariables.unHighlightTextColor }]}
+          >
             Global rankings across all analyses
           </Text>
 
@@ -324,7 +401,7 @@ export default function LeaderboardView() {
               </View>
               <View style={styles.topSection}>
                 {topEntries.map((e, i) => (
-                  <TopEntryRow key={`top-${e.rank}`} entry={e} index={i} />
+                  <TopEntryRow key={i} entry={e} index={i} />
                 ))}
               </View>
             </>
@@ -407,7 +484,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: styleVariables.borderColor,
-    overflow: "hidden",
+    shadowColor: "#7E6B67",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",

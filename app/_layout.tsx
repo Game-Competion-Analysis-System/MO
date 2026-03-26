@@ -57,10 +57,10 @@ function RootLayoutInner() {
         headerRight: () => (
           <View style={styles.headerRight}>
             <Pressable onPress={() => router.push('/profile' as any)}>
-              <Ionicons name="person-circle-outline" size={26} color="#000" />
+              <Ionicons name="person-circle-outline" size={26} color="#fff" />
             </Pressable>
             <Pressable onPress={logout}>
-              <Ionicons name="log-out-outline" size={26} color="#000" />
+              <Ionicons name="log-out-outline" size={26} color="#fff" />
             </Pressable>
           </View>
         ),

@@ -124,6 +124,11 @@ const styles = StyleSheet.create({
     borderColor: styleVariables.borderColor,
     borderBottomWidth: 3,
     gap: 4,
+    shadowColor: '#7E6B67',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   card: {
     padding: 12,
@@ -132,5 +137,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: styleVariables.borderColor,
     gap: 2,
+    shadowColor: '#7E6B67',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
 });

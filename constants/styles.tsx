@@ -23,7 +23,7 @@ export const headers = StyleSheet.create({
     fontWeight: "bold",
   },
   h4: {
-    fontSize: 12,
+    fontSize: 13,
     color: styleVariables.unHighlightTextColor,
   },
 });
@@ -37,7 +37,7 @@ export const container = StyleSheet.create({
     minHeight: "100%",
   },
   gap: {
-    gap: 10,
+    gap: 14,
   },
   rowContainer: {
     flexDirection: "row",
