@@ -9,7 +9,11 @@
       "mcp__ide__getDiagnostics",
       "Bash(find:*)",
       "Bash(mkdir:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cp \"E:/Project/MO/app/game/[name]/\\(tabs\\)/analysis.tsx\" \"E:/Project/MO/app/dashboard/game/[name]/\\(tabs\\)/analysis.tsx\")",
+      "Bash(cp \"E:/Project/MO/app/game/[name]/\\(tabs\\)/history.tsx\" \"E:/Project/MO/app/dashboard/game/[name]/\\(tabs\\)/history.tsx\")",
+      "Bash(cp \"E:/Project/MO/app/game/[name]/\\(tabs\\)/analysizes.tsx\" \"E:/Project/MO/app/dashboard/game/[name]/\\(tabs\\)/analysizes.tsx\")",
+      "Bash(npm install:*)"
     ]
   }
 }

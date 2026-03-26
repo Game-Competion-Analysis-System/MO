@@ -33,10 +33,10 @@ export default function AppTabsLayout() {
         headerRight: () => (
           <View style={styles.headerRight}>
             <Pressable onPress={() => router.push("/profile" as any)}>
-              <Ionicons name="person-circle-outline" size={26} color="#fff" />
+              <Ionicons name="person-circle-outline" size={26} color="#000" />
             </Pressable>
             <Pressable onPress={logout}>
-              <Ionicons name="log-out-outline" size={26} color="#fff" />
+              <Ionicons name="log-out-outline" size={26} color="#000" />
             </Pressable>
           </View>
         ),
@@ -78,6 +78,15 @@ export default function AppTabsLayout() {
           title: "Leaderboard",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trophy" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="heatmap"
+        options={{
+          title: "Heatmap",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="pulse" size={size} color={color} />
           ),
         }}
       />

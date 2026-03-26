@@ -19,7 +19,7 @@ function BackButton() {
 
   return (
     <Pressable onPress={handleBack} style={{ paddingLeft: 10 }}>
-      <Ionicons name="arrow-back" size={24} color="#fff" />
+      <Ionicons name="arrow-back" size={24} color="#000" />
     </Pressable>
   );
 }

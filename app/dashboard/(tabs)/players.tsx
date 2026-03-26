@@ -273,11 +273,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: styleVariables.borderColor,
-    shadowColor: '#7E6B67',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
   cardAlt: { backgroundColor: "#f3f3f3" },
   rankCircle: {
