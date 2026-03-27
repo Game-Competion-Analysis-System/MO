@@ -1,6 +1,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { container, headers, styleVariables } from '@/constants/styles';
-import { AnalysisSummary, apiGetAllPaged, Game, User } from '@/services/api';
+import { AnalysisSummary, apiGet, PagedResult } from '@/services/api';
 import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,26 +9,32 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
-  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [userCount, setUserCount]       = useState(0);
+  const [gameCount, setGameCount]       = useState(0);
+  const [analysisCount, setAnalysisCount] = useState(0);
+  const [analyses, setAnalyses]         = useState<AnalysisSummary[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
 
   async function load() {
     try {
       if (isAdmin) {
-        const [u, g, a] = await Promise.all([
-          apiGetAllPaged<User>('/api/users', true),
-          apiGetAllPaged<Game>('/api/games'),
-          apiGetAllPaged<AnalysisSummary>('/api/ai', true),
+        // Fetch only what we need: counts from first page + 5 recent analyses
+        const [usersRes, gamesRes, analysesRes] = await Promise.all([
+          apiGet<PagedResult<any>>('/api/users?pageSize=1&pageNumber=1', true).catch(() => null),
+          apiGet<PagedResult<any>>('/api/games?pageSize=1&pageNumber=1').catch(() => null),
+          apiGet<PagedResult<AnalysisSummary>>('/api/ai?pageSize=5&pageNumber=1&isDescending=true', true).catch(() => null),
         ]);
-        setUsers(u || []);
-        setGames(g || []);
-        setAnalyses((a || []).sort((x, y) => moment(y.processedTime).valueOf() - moment(x.processedTime).valueOf()));
+        setUserCount(usersRes?.totalCount ?? 0);
+        setGameCount(gamesRes?.totalCount ?? 0);
+        setAnalysisCount(analysesRes?.totalCount ?? 0);
+        setAnalyses(analysesRes?.items ?? []);
       } else {
-        const data = await apiGetAllPaged<AnalysisSummary>('/api/ai', true);
-        setAnalyses((data || []).sort((a, b) => moment(b.processedTime).valueOf() - moment(a.processedTime).valueOf()));
+        const data = await apiGet<PagedResult<AnalysisSummary>>(
+          '/api/ai?pageSize=5&pageNumber=1&isDescending=true',
+          true
+        ).catch(() => null);
+        setAnalyses(data?.items ?? []);
       }
     } catch {
       // silently fail
@@ -48,8 +54,6 @@ export default function HomeScreen() {
     );
   }
 
-  const totalPlayers = analyses.reduce((s, a) => s + (a.leaderboard?.length ?? 0), 0);
-
   return (
     <ScrollView
       contentContainerStyle={[container.padding, container.gap]}
@@ -67,10 +71,9 @@ export default function HomeScreen() {
 
       {isAdmin && (
         <View style={styles.statsGrid}>
-          <StatCard label="Total Users" value={String(users.length)} color="#9333EA" />
-          <StatCard label="Total Games" value={String(games.length)} color="#22C55E" />
-          <StatCard label="Total Analyses" value={String(analyses.length)} color="#2563EB" />
-          <StatCard label="Players Detected" value={String(totalPlayers)} color="#EA580C" />
+          <StatCard label="Total Users"     value={String(userCount)}     color="#9333EA" />
+          <StatCard label="Total Games"     value={String(gameCount)}     color="#22C55E" />
+          <StatCard label="Total Analyses"  value={String(analysisCount)} color="#2563EB" />
         </View>
       )}
 
@@ -80,7 +83,7 @@ export default function HomeScreen() {
           {isAdmin ? 'No analyses yet.' : 'No analyses yet. Pick a game to get started!'}
         </Text>
       ) : (
-        analyses.slice(0, 5).map((a) => (
+        analyses.map((a) => (
           <View key={a.analysisId} style={styles.card}>
             <Text style={headers.h4}>
               {a.gameName ?? 'Unknown Game'} — {a.serverName ? `Server: ${a.serverName}` : a.eventName ?? `#${a.analysisId}`}
@@ -104,16 +107,8 @@ function StatCard({ label, value, color }: { label: string; value: string; color
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard: {
     flex: 1,
     minWidth: '45%',

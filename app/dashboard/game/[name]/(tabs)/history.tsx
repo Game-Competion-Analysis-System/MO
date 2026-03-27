@@ -53,10 +53,21 @@ export default function HistoryScreen() {
       setError(null);
       nextPage.current = 1;
       hasMore.current = true;
-      const { items, hasNext } = await fetchPage(1);
-      setAnalyses(items);
-      nextPage.current = 2;
-      hasMore.current = hasNext;
+      let accumulated: AnalysisSummary[] = [];
+
+      // Keep fetching pages until we have enough items to fill the list (max 30 pages)
+      let pagesFetched = 0;
+      while (hasMore.current && accumulated.length < 10 && pagesFetched < 30) {
+        pagesFetched++;
+        const { items, hasNext } = await fetchPage(nextPage.current);
+        nextPage.current += 1;
+        hasMore.current = hasNext;
+        if (items.length > 0) {
+          accumulated = [...accumulated, ...items];
+          setAnalyses([...accumulated]);
+        }
+      }
+      if (accumulated.length === 0) setAnalyses([]);
     } catch (e: any) {
       setError(e.message || "Failed to load history");
     } finally {
@@ -71,10 +82,19 @@ export default function HistoryScreen() {
     fetching.current = true;
     setLoadingMore(true);
     try {
-      const { items, hasNext } = await fetchPage(nextPage.current);
-      setAnalyses((prev) => [...prev, ...items]);
-      nextPage.current += 1;
-      hasMore.current = hasNext;
+      // Skip pages that have no matching items for this game (max 20 pages per call)
+      let added = 0;
+      let pagesScanned = 0;
+      while (hasMore.current && added === 0 && pagesScanned < 20) {
+        pagesScanned++;
+        const { items, hasNext } = await fetchPage(nextPage.current);
+        nextPage.current += 1;
+        hasMore.current = hasNext;
+        if (items.length > 0) {
+          setAnalyses((prev) => [...prev, ...items]);
+          added += items.length;
+        }
+      }
     } catch {
       // silently ignore load-more errors
     } finally {

@@ -1,6 +1,11 @@
 import { container, headers, styleVariables } from "@/constants/styles";
 import { AnalysisSummary, User, apiGet, apiGetAllPaged } from "@/services/api";
+import { Ionicons } from "@expo/vector-icons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { SVGRenderer, SvgChart } from "@wuba/react-native-echarts";
+import { LineChart as ELineChart } from "echarts/charts";
+import { GridComponent, TooltipComponent } from "echarts/components";
+import * as echarts from "echarts/core";
 import { useGlobalSearchParams } from "expo-router";
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,193 +21,90 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Svg, {
-  Circle,
-  G,
-  Line,
-  Polyline,
-  Text as SvgText,
-} from "react-native-svg";
 
-const SCREEN_W = Dimensions.get("window").width - 60;
-const CH = 180;
-const PL = 40,
-  PB = 28,
-  PT = 8,
-  PR = 8;
+echarts.use([SVGRenderer, ELineChart, GridComponent, TooltipComponent]);
 
-type ChartPoint = { dayKey: string; exactTime: string; value: number; timestamp: number };
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function LineChart({ data, color }: { data: ChartPoint[]; color: string }) {
-  const [tooltip, setTooltip] = useState<{
-    x: number;
-    y: number;
-    point: ChartPoint;
-  } | null>(null);
+const SCREEN_W = Dimensions.get("window").width;
+const CHART_W = SCREEN_W - 60; // 30 px padding each side
+const CHART_H = 220;
 
-  if (!data.length) {
-    return (
-      <View style={styles.emptyChart}>
-        <Text style={headers.h4}>No data yet</Text>
-      </View>
-    );
-  }
+type TimeFilter = "28d" | "7d" | "24h";
+const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
+  "28d": "Last 28 Days",
+  "7d": "Last 7 Days",
+  "24h": "Last 24 Hours",
+};
 
-  const maxV = Math.max(...data.map((d) => d.value), 1);
-  const iW = SCREEN_W - PL - PR;
-  const iH = CH - PB - PT;
-  const minT = Math.min(...data.map((d) => d.timestamp));
-  const maxT = Math.max(...data.map((d) => d.timestamp));
-  const rangeT = maxT - minT || 1;
-  const xOf = (ts: number) =>
-    data.length === 1 ? PL + iW / 2 : PL + ((ts - minT) / rangeT) * iW;
-  const yOf = (v: number) => PT + iH * (1 - v / maxV);
-  const pts = data.map((d) => `${xOf(d.timestamp)},${yOf(d.value)}`).join(" ");
+type ChartPoint = { label: string; value: number; exactTime: string };
 
-  // One label per unique dayKey, capped at 5 evenly-spaced labels
-  const allTicks: [string, number][] = [];
-  const seenDays = new Set<string>();
-  for (const d of data) {
-    if (!seenDays.has(d.dayKey)) {
-      seenDays.add(d.dayKey);
-      allTicks.push([d.dayKey, d.timestamp]);
-    }
-  }
-  const maxTicks = 5;
-  const dayTicks: [string, number][] =
-    allTicks.length <= maxTicks
-      ? allTicks
-      : allTicks.filter((_, i) =>
-          i === 0 ||
-          i === allTicks.length - 1 ||
-          (i % Math.ceil(allTicks.length / (maxTicks - 1))) === 0,
-        ).slice(0, maxTicks);
+// ─── ECharts option builder ───────────────────────────────────────────────────
 
-  return (
-    <View>
-      <Svg width={SCREEN_W} height={CH} onPress={() => setTooltip(null)}>
-        <Line
-          x1={PL}
-          y1={PT}
-          x2={PL}
-          y2={CH - PB}
-          stroke="#ddd"
-          strokeWidth={1}
-        />
-        <Line
-          x1={PL}
-          y1={CH - PB}
-          x2={SCREEN_W - PR}
-          y2={CH - PB}
-          stroke="#ddd"
-          strokeWidth={1}
-        />
-        {[0, 0.5, 1].map((r) => {
-          const y = PT + iH * (1 - r);
-          return (
-            <G key={r}>
-              <Line
-                x1={PL}
-                y1={y}
-                x2={SCREEN_W - PR}
-                y2={y}
-                stroke="#f0f0f0"
-                strokeWidth={1}
-              />
-              <SvgText
-                x={PL - 4}
-                y={y + 4}
-                fontSize={9}
-                textAnchor="end"
-                fill="#999"
-              >
-                {maxV >= 1000000
-                  ? `${((maxV * r) / 1000000).toFixed(1)}M`
-                  : Math.round(maxV * r)}
-              </SvgText>
-            </G>
-          );
-        })}
-        {data.length > 1 && (
-          <Polyline
-            points={pts}
-            fill="none"
-            stroke={color}
-            strokeWidth={2}
-            strokeOpacity={0.4}
-          />
-        )}
-        {dayTicks.map(([day, ts]) => (
-          <SvgText
-            key={day}
-            x={xOf(ts)}
-            y={CH - PB + 14}
-            fontSize={9}
-            textAnchor="middle"
-            fill="#666"
-          >
-            {day}
-          </SvgText>
-        ))}
-        {data.map((d, i) => {
-          const cx = xOf(d.timestamp);
-          const cy = yOf(d.value);
-          const isActive = tooltip?.point === d;
-          return (
-            <G
-              key={i}
-              onPress={(e) => {
-                e.stopPropagation?.();
-                setTooltip(isActive ? null : { x: cx, y: cy, point: d });
-              }}
-            >
-              <Circle
-                cx={cx}
-                cy={cy}
-                r={isActive ? 7 : 5}
-                fill={color}
-                stroke="#fff"
-                strokeWidth={1.5}
-              />
-            </G>
-          );
-        })}
-      </Svg>
-      {tooltip && (
-        <View
-          style={[
-            styles.tooltip,
-            {
-              left: Math.min(Math.max(tooltip.x - 60, 0), SCREEN_W - 130),
-              top: Math.max(tooltip.y - 52, 0),
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Text style={styles.tooltipTime}>{tooltip.point.exactTime}</Text>
-          <Text style={styles.tooltipValue}>
-            {tooltip.point.value >= 1000000
-              ? `${(tooltip.point.value / 1000000).toFixed(2)}M`
-              : tooltip.point.value.toLocaleString()}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+function buildOption(data: ChartPoint[]) {
+  const color = styleVariables.mainColor;
+  return {
+    grid: { top: 20, bottom: 36, left: 52, right: 12 },
+    xAxis: {
+      type: "category",
+      data: data.map((d) => d.label),
+      axisLine: { lineStyle: { color: "#e5e5e5" } },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { fontSize: 9, color: "#999" },
+    },
+    yAxis: {
+      type: "value",
+      splitLine: { lineStyle: { color: "#f0f0f0" } },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: {
+        fontSize: 9,
+        color: "#999",
+        formatter: (v: number) =>
+          v >= 1_000_000
+            ? `${(v / 1_000_000).toFixed(1)}M`
+            : v >= 1_000
+              ? `${(v / 1_000).toFixed(0)}k`
+              : String(v),
+      },
+    },
+    series: [
+      {
+        type: "line",
+        data: data.map((d) => d.value),
+        smooth: true,
+        symbol: "circle",
+        symbolSize: 7,
+        lineStyle: { color, width: 2.5 },
+        itemStyle: { color, borderWidth: 2, borderColor: "#fff" },
+        areaStyle: {
+          color: {
+            type: "linear",
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: `${color}55` },
+              { offset: 1, color: `${color}00` },
+            ],
+          },
+        },
+      },
+    ],
+  };
 }
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function AnalysisScreen() {
   const { name } = useGlobalSearchParams<{ name: string }>();
   const gameName = decodeURIComponent(name ?? "");
+
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  type TimeFilter = "28d" | "7d" | "24h";
-  const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
-    "28d": "Last 28 Days",
-    "7d": "Last 7 Days",
-    "24h": "Last 24 Hours",
-  };
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("28d");
@@ -212,6 +114,9 @@ export default function AnalysisScreen() {
   const [registeredUsers, setRegisteredUsers] = useState<string[]>([]);
   const searchRef = useRef<TextInput>(null);
 
+  const svgRef = useRef<any>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
+
   async function load() {
     try {
       const [data, users] = await Promise.all([
@@ -219,7 +124,7 @@ export default function AnalysisScreen() {
         apiGet<User[]>("/api/users", true).catch(() => [] as User[]),
       ]);
       const filtered = (data || [])
-        .filter((a) => a.gameName === gameName)
+        // .filter((a) => a.gameName === gameName)
         .sort(
           (a, b) =>
             moment(b.processedTime).valueOf() -
@@ -266,40 +171,64 @@ export default function AnalysisScreen() {
     [allPlayerNames, playerSearch],
   );
 
+  // Chart data — only computed when a player is selected
   const chartData = useMemo((): ChartPoint[] => {
-    const sorted = [...visibleAnalyses].sort(
-      (a, b) =>
-        moment(a.processedTime).valueOf() - moment(b.processedTime).valueOf(),
-    );
+    if (!selectedPlayer) return [];
     const xLabel = (t: string) =>
       timeFilter === "24h"
         ? moment(t).format("HH:mm")
         : moment(t).format("D MMM");
-    if (selectedPlayer) {
-      return sorted
-        .filter((a) =>
-          (a.leaderboard || []).some((e) => e.playerName === selectedPlayer),
-        )
-        .map((a) => {
-          const entry = (a.leaderboard || []).find(
-            (e) => e.playerName === selectedPlayer,
-          )!;
-          return {
-            dayKey: xLabel(a.processedTime!),
-            exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
-            value: entry.score,
-            timestamp: moment(a.processedTime).valueOf(),
-          };
-        });
-    }
-    return sorted.map((a) => ({
-      dayKey: xLabel(a.processedTime!),
-      exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
-      value: (a.leaderboard || []).length,
-      timestamp: moment(a.processedTime).valueOf(),
-    }));
+    return [...visibleAnalyses]
+      .sort(
+        (a, b) =>
+          moment(a.processedTime).valueOf() - moment(b.processedTime).valueOf(),
+      )
+      .filter((a) =>
+        (a.leaderboard || []).some((e) => e.playerName === selectedPlayer),
+      )
+      .map((a) => {
+        const entry = (a.leaderboard || []).find(
+          (e) => e.playerName === selectedPlayer,
+        )!;
+        return {
+          label: xLabel(a.processedTime!),
+          value: entry.score,
+          exactTime: moment(a.processedTime).format("MMM D, YYYY · HH:mm"),
+        };
+      });
   }, [visibleAnalyses, selectedPlayer, timeFilter]);
 
+  // Init / update chart
+  useEffect(() => {
+    if (!selectedPlayer || !svgRef.current) return;
+
+    if (!chartRef.current) {
+      chartRef.current = echarts.init(svgRef.current, "light", {
+        renderer: "svg",
+        width: CHART_W,
+        height: CHART_H,
+      });
+    }
+    chartRef.current.setOption(buildOption(chartData));
+  }, [chartData, selectedPlayer]);
+
+  // Dispose when player cleared
+  useEffect(() => {
+    if (!selectedPlayer && chartRef.current) {
+      chartRef.current.dispose();
+      chartRef.current = null;
+    }
+  }, [selectedPlayer]);
+
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      chartRef.current?.dispose();
+    },
+    [],
+  );
+
+  // Summary stats (always visible)
   const thisMonth = analyses.filter((a) =>
     moment(a.processedTime).isSame(moment(), "month"),
   );
@@ -321,6 +250,7 @@ export default function AnalysisScreen() {
         />
       }
     >
+      {/* Header row */}
       <View style={[container.rowContainer, styles.sectionHeader]}>
         <Text style={headers.h1}>Analytics</Text>
         <Pressable
@@ -336,6 +266,7 @@ export default function AnalysisScreen() {
         </Pressable>
       </View>
 
+      {/* Time-filter modal */}
       <Modal
         visible={dropdownOpen}
         transparent
@@ -346,7 +277,7 @@ export default function AnalysisScreen() {
           style={styles.modalOverlay}
           onPress={() => setDropdownOpen(false)}
         >
-          <View style={styles.dropdown}>
+          <View style={styles.filterDropdown}>
             <Text style={[headers.h3, { marginBottom: 8 }]}>
               Filter by Period
             </Text>
@@ -354,8 +285,8 @@ export default function AnalysisScreen() {
               <Pressable
                 key={f}
                 style={[
-                  styles.dropdownItem,
-                  timeFilter === f && styles.dropdownItemActive,
+                  styles.filterItem,
+                  timeFilter === f && styles.filterItemActive,
                 ]}
                 onPress={() => {
                   setTimeFilter(f);
@@ -364,8 +295,8 @@ export default function AnalysisScreen() {
               >
                 <Text
                   style={[
-                    styles.dropdownText,
-                    timeFilter === f && styles.dropdownTextActive,
+                    styles.filterText,
+                    timeFilter === f && styles.filterTextActive,
                   ]}
                 >
                   {TIME_FILTER_LABELS[f]}
@@ -382,7 +313,7 @@ export default function AnalysisScreen() {
         </View>
       ) : (
         <>
-          {/* Stat cards */}
+          {/* Stat cards — always visible */}
           <View style={styles.statsRow}>
             <StatBox
               label="Total Analyses"
@@ -398,7 +329,7 @@ export default function AnalysisScreen() {
           <View style={styles.statsRow}>
             <StatBox
               label="Top Player"
-              value={topPlayer ? topPlayer.playerName : "—"}
+              value={topPlayer?.playerName ?? "—"}
               color="#22C55E"
               small
             />
@@ -410,33 +341,44 @@ export default function AnalysisScreen() {
             />
           </View>
 
-          {/* Player search */}
+          {/* Player autocomplete */}
           {allPlayerNames.length > 0 && (
             <View style={styles.searchContainer}>
-              <TextInput
-                ref={searchRef}
-                style={styles.searchInput}
-                placeholder="Search player…"
-                placeholderTextColor="#aaa"
-                value={playerSearch}
-                onChangeText={(t) => {
-                  setPlayerSearch(t);
-                  setPlayerDropdownOpen(true);
-                }}
-                onFocus={() => setPlayerDropdownOpen(true)}
-              />
-              {selectedPlayer && (
-                <Pressable
-                  style={styles.clearBtn}
-                  onPress={() => {
-                    setSelectedPlayer(null);
-                    setPlayerSearch("");
-                    setPlayerDropdownOpen(false);
+              <View style={styles.searchRow}>
+                <Ionicons
+                  name="person-outline"
+                  size={16}
+                  color={styleVariables.unHighlightTextColor}
+                  style={{ marginLeft: 12 }}
+                />
+                <TextInput
+                  ref={searchRef}
+                  style={styles.searchInput}
+                  placeholder="Search player…"
+                  placeholderTextColor="#aaa"
+                  value={playerSearch}
+                  onChangeText={(t) => {
+                    setPlayerSearch(t);
+                    setPlayerDropdownOpen(true);
+                    if (selectedPlayer && t !== selectedPlayer)
+                      setSelectedPlayer(null);
                   }}
-                >
-                  <Text style={styles.clearBtnText}>✕</Text>
-                </Pressable>
-              )}
+                  onFocus={() => setPlayerDropdownOpen(true)}
+                />
+                {selectedPlayer && (
+                  <Pressable
+                    style={{ paddingHorizontal: 12 }}
+                    onPress={() => {
+                      setSelectedPlayer(null);
+                      setPlayerSearch("");
+                      setPlayerDropdownOpen(false);
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={18} color="#aaa" />
+                  </Pressable>
+                )}
+              </View>
+
               {playerDropdownOpen && filteredPlayerNames.length > 0 && (
                 <View style={styles.autocompleteList}>
                   {filteredPlayerNames.slice(0, 8).map((p) => (
@@ -446,11 +388,11 @@ export default function AnalysisScreen() {
                         styles.autocompleteItem,
                         selectedPlayer === p && styles.autocompleteItemActive,
                       ]}
-                      onPress={() => {
+                      onPressIn={() => {
+                        // Fire on mousedown/touchstart — before onBlur can close the dropdown
                         setSelectedPlayer(p);
                         setPlayerSearch(p);
                         setPlayerDropdownOpen(false);
-                        searchRef.current?.blur();
                       }}
                     >
                       <Text
@@ -468,17 +410,39 @@ export default function AnalysisScreen() {
             </View>
           )}
 
-          {/* Chart */}
-          <Text style={headers.h2}>
-            {selectedPlayer
-              ? `${selectedPlayer} — Score · ${TIME_FILTER_LABELS[timeFilter]}`
-              : `Analyses · ${TIME_FILTER_LABELS[timeFilter]}`}
-          </Text>
-          <View style={styles.chartBox}>
-            <LineChart data={chartData} color={styleVariables.mainColor} />
+          {/* Chart — only when a player is selected */}
+          <View style={styles.chartCard}>
+            {!selectedPlayer ? (
+              <View style={styles.emptyChart}>
+                <Ionicons
+                  name="analytics-outline"
+                  size={36}
+                  color={styleVariables.borderColor}
+                />
+                <Text style={styles.emptyText}>
+                  Select a player to see their score chart
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={[headers.h2, { padding: 14, paddingBottom: 0 }]}>
+                  {selectedPlayer} — Score · {TIME_FILTER_LABELS[timeFilter]}
+                </Text>
+                {chartData.length === 0 ? (
+                  <View style={styles.emptyChart}>
+                    <Text style={styles.emptyText}>No data in this period</Text>
+                  </View>
+                ) : (
+                  <SvgChart
+                    ref={svgRef}
+                    style={{ width: CHART_W, height: CHART_H }}
+                  />
+                )}
+              </>
+            )}
           </View>
 
-          {/* Summary */}
+          {/* Summary detail rows */}
           <Text style={headers.h1}>
             {TIME_FILTER_LABELS[timeFilter]} Details
           </Text>
@@ -509,7 +473,7 @@ export default function AnalysisScreen() {
             />
           )}
 
-          {/* Per-player entries when filtered */}
+          {/* Per-player entries — only when player is selected */}
           {selectedPlayer && (
             <>
               <Text style={headers.h2}>{selectedPlayer} — All Entries</Text>
@@ -547,6 +511,8 @@ export default function AnalysisScreen() {
     </ScrollView>
   );
 }
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatBox({
   label,
@@ -598,6 +564,8 @@ function DetailRow({
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   sectionHeader: { justifyContent: "space-between", alignItems: "flex-start" },
   badge: {
@@ -609,6 +577,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 13, color: styleVariables.unHighlightTextColor },
   centered: { paddingVertical: 40, alignItems: "center" },
+
   statsRow: { flexDirection: "row", gap: 10 },
   statBox: {
     flex: 1,
@@ -620,25 +589,22 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   statLine: { width: "100%", height: 4, borderRadius: 4, marginTop: 4 },
+
   searchContainer: { position: "relative", zIndex: 10 },
-  searchInput: {
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: styleVariables.borderColor,
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
     backgroundColor: "#fff",
-    paddingRight: 40,
   },
-  clearBtn: {
-    position: "absolute",
-    right: 12,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    fontSize: 14,
   },
-  clearBtnText: { fontSize: 14, color: "#999" },
   autocompleteList: {
     position: "absolute",
     top: "100%",
@@ -661,25 +627,26 @@ const styles = StyleSheet.create({
     color: styleVariables.mainColor,
     fontWeight: "600",
   },
-  tooltip: {
-    position: "absolute",
-    backgroundColor: "rgba(30,30,30,0.88)",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    minWidth: 120,
-    zIndex: 99,
-  },
-  tooltipTime: { color: "#ccc", fontSize: 11 },
-  tooltipValue: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  chartBox: {
-    borderRadius: 10,
+
+  chartCard: {
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: styleVariables.borderColor,
-    padding: 12,
-    alignItems: "center",
+    backgroundColor: "#fff",
+    overflow: "hidden",
   },
-  emptyChart: { height: CH, justifyContent: "center", alignItems: "center" },
+  emptyChart: {
+    height: CHART_H,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: styleVariables.unHighlightTextColor,
+    textAlign: "center",
+  },
+
   detailRow: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 10,
@@ -714,23 +681,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  dropdown: {
+  filterDropdown: {
     backgroundColor: "#fff",
     borderRadius: 14,
     padding: 16,
     minWidth: 200,
-    maxHeight: 360,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
-  dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  dropdownItemActive: { backgroundColor: styleVariables.mainColor },
-  dropdownText: { fontSize: 15, color: "#333" },
-  dropdownTextActive: { color: "#fff", fontWeight: "600" },
+  filterItem: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8 },
+  filterItemActive: { backgroundColor: styleVariables.mainColor },
+  filterText: { fontSize: 15, color: "#333" },
+  filterTextActive: { color: "#fff", fontWeight: "600" },
 });
