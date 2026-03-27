@@ -152,13 +152,18 @@ export default function AnalysisScreen() {
   }, [analyses, timeFilter]);
 
   const allPlayerNames = useMemo(() => {
-    const set = new Set<string>(registeredUsers);
+    const seen = new Map<string, string>(); // lowercase key → original value
+    registeredUsers.forEach((u) => {
+      const name = u?.trim();
+      if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
+    });
     visibleAnalyses.forEach((a) =>
       (a.leaderboard || []).forEach((e) => {
-        if (e.playerName) set.add(e.playerName);
+        const name = e.playerName?.trim();
+        if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
       }),
     );
-    return [...set].sort();
+    return Array.from(seen.values()).sort();
   }, [visibleAnalyses, registeredUsers]);
 
   const filteredPlayerNames = useMemo(

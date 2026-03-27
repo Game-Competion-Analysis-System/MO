@@ -195,13 +195,16 @@ export default function HeatmapScreen() {
 
   // All unique player names extracted from leaderboards
   const allPlayers = useMemo(() => {
-    const names = new Set<string>();
+    const seen = new Map<string, string>(); // lowercase key → original value
     for (const a of analyses) {
       for (const p of a.leaderboard ?? []) {
-        if (p.playerName) names.add(p.playerName);
+        const name = p.playerName?.trim();
+        if (name && !seen.has(name.toLowerCase())) {
+          seen.set(name.toLowerCase(), name);
+        }
       }
     }
-    return Array.from(names).sort();
+    return Array.from(seen.values()).sort();
   }, [analyses]);
 
   // Players shown in dropdown, filtered by search text
