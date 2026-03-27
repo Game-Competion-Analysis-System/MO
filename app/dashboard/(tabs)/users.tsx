@@ -1,6 +1,6 @@
 import { container, headers, styleVariables } from '@/constants/styles';
 import { useAuth } from '@/context/AuthContext';
-import { apiDelete, apiGetAllPaged, User } from '@/services/api';
+import { apiCreateUser, apiDelete, apiGetAllPaged, User } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -31,7 +31,6 @@ export default function UsersScreen() {
 }
 
 function UsersContent() {
-  const { register } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -225,7 +224,6 @@ function UsersContent() {
         visible={createModalVisible}
         onClose={() => setCreateModalVisible(false)}
         onSuccess={() => { setCreateModalVisible(false); load(); }}
-        register={register}
       />
     </>
   );
@@ -253,35 +251,35 @@ function ProfileRow({
   );
 }
 
+const ROLES = ['user', 'admin'] as const;
+type Role = (typeof ROLES)[number];
+
 function CreateUserModal({
   visible,
   onClose,
   onSuccess,
-  register,
 }: {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  register: (username: string, email: string, password: string) => Promise<void>;
 }) {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername]   = useState('');
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [role, setRole]           = useState<Role>('user');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
 
   function reset() {
     setUsername('');
     setEmail('');
     setPassword('');
+    setRole('user');
     setError(null);
     setSubmitting(false);
   }
 
-  function handleClose() {
-    reset();
-    onClose();
-  }
+  function handleClose() { reset(); onClose(); }
 
   async function handleSubmit() {
     if (!username.trim() || !email.trim() || !password.trim()) {
@@ -291,7 +289,7 @@ function CreateUserModal({
     setSubmitting(true);
     setError(null);
     try {
-      await register(username.trim(), email.trim(), password);
+      await apiCreateUser({ username: username.trim(), email: email.trim(), password, role });
       reset();
       onSuccess();
     } catch (e: any) {
@@ -357,6 +355,24 @@ function CreateUserModal({
               onChangeText={setPassword}
               editable={!submitting}
             />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>Role</Text>
+            <View style={styles.roleRow}>
+              {ROLES.map((r) => (
+                <Pressable
+                  key={r}
+                  style={[styles.roleChip, role === r && styles.roleChipActive]}
+                  onPress={() => setRole(r)}
+                  disabled={submitting}
+                >
+                  <Text style={[styles.roleChipText, role === r && styles.roleChipTextActive]}>
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
 
           {error && <Text style={styles.inlineError}>{error}</Text>}
@@ -529,6 +545,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: '#fafafa',
   },
+  roleRow: { flexDirection: 'row', gap: 10 },
+  roleChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: styleVariables.borderColor,
+    backgroundColor: '#f9f9f9',
+  },
+  roleChipActive: {
+    backgroundColor: styleVariables.mainColor,
+    borderColor: styleVariables.mainColor,
+  },
+  roleChipText: { fontWeight: '600', color: '#555' },
+  roleChipTextActive: { color: '#fff' },
   inlineError: { color: '#EF4444', fontSize: 13 },
   submitBtn: {
     backgroundColor: styleVariables.mainColor,

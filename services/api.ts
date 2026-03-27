@@ -19,6 +19,17 @@ export interface User {
   passwordHash?: string;
 }
 
+export interface CreateUserDto {
+  username: string;
+  email: string;
+  password: string;
+  role?: string;
+}
+
+export function apiCreateUser(dto: CreateUserDto): Promise<User> {
+  return apiPost<User>('/api/users', dto, true);
+}
+
 export interface Game {
   gameId: number;
   gameName: string;
